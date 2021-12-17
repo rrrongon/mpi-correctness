@@ -2,6 +2,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <time.h>
+#include <stdbool.h>
 
 float *create_rand_nums(int num_elements) {
   float *rand_nums = (float *)malloc(sizeof(float) * num_elements);
@@ -24,10 +25,9 @@ float compute_avg(float *array, int num_elements) {
 
 
 int main(int argc, char** argv) {
-  //if (argc != 2) {
-  //  fprintf(stderr, "Usage: avg num_elements_per_proc\n");
-  //  exit(1);
-  //}
+  
+  int DEBUG_LOG =0; 
+  DEBUG_LOG = atoi(argv[1]);
 
   int num_elements_per_proc = 1000;//atoi(argv[1]);
 
@@ -57,20 +57,57 @@ int main(int argc, char** argv) {
   MPI_Allgather(&sub_avg, 1, MPI_FLOAT, sub_avgs, 1, MPI_FLOAT, MPI_COMM_WORLD);
 
   float avg = compute_avg(sub_avgs, world_size);
-  printf("Avg of all elements from proc %d is %f\n", my_rank, avg);
 
+  if(DEBUG_LOG)
+    printf("Avg of all elements from proc %d is %f\n", my_rank, avg);
 
-  if (my_rank == 0) {    
+  MPI_Barrier(MPI_COMM_WORLD);
+
+  if (my_rank == 0) {
+
     float all_value_avg = compute_avg(rand_nums, num_elements_per_proc * world_size);
-
+    
+    MPI_Status status;
+    int global_pass = 1;
+    float avg_recv = 0;
+    int local_pass = 1;
     float diff = avg - all_value_avg;
 
-    if (diff != 0.0){
-      printf("avg did not match. allgather avg=%f, calculated avg=%f\n", avg, all_value_avg );
+    if (diff >0.001){
+      global_pass = 0;
+      if(DEBUG_LOG)
+        printf("avg did not match. allgather avg=%f, calculated avg=%f\n", avg, all_value_avg );
     }else{
-      printf("avg is EQUAL. allgather avg=%f, calculated avg=%f\n", avg, all_value_avg);
+      if(DEBUG_LOG)
+        printf("avg is EQUAL. allgather avg=%f, calculated avg=%f\n", avg, all_value_avg);
     }
+
+    for(int rank=1; rank < world_size; rank++){
+
+	MPI_Recv(&avg_recv, 1, MPI_FLOAT, rank, 0, MPI_COMM_WORLD, &status);
+	diff = all_value_avg - avg_recv;
+	if (diff < 0)
+	    diff = diff * (-1);
+	if(diff > 0.001)
+	    local_pass = 0;
+	else
+	    local_pass = 1;
+
+	global_pass = global_pass && local_pass;
+
+    }
+
     free(rand_nums);
+
+    if(global_pass)
+	printf("TEST: PASS\n");
+    else
+	printf("TEST: FAIL\n");
+
+  }
+  else
+  {
+    MPI_Send(&avg, 1, MPI_FLOAT, 0, 0, MPI_COMM_WORLD);
   }
 
   free(sub_avgs);
@@ -78,4 +115,6 @@ int main(int argc, char** argv) {
 
   MPI_Barrier(MPI_COMM_WORLD);
   MPI_Finalize();
+
+  return EXIT_SUCCESS;
 }
