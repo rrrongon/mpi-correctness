@@ -31,47 +31,48 @@ int main(int argc, char** argv) {
     rand_nums = create_rand_nums(num_elements_per_proc);
 
     float local_sum = 0;
-    int i;
-    for (i = 0; i < num_elements_per_proc; i++) {
+    for (int i = 0; i < num_elements_per_proc; i++) {
         local_sum += rand_nums[i];
     }
 
     float global_sum;
     int root = 0;
-    MPI_Reduce(&local_sum, &global_sum, 1, MPI_FLOAT, MPI_SUM, root, MPI_COMM_WORLD);
+	
+	int global_pass = 0;
 
-    printf("reduced\n");
+    MPI_Reduce(&local_sum, &global_sum, 1, MPI_FLOAT, MPI_SUM, 0, MPI_COMM_WORLD);
 
-    MPI_Barrier(MPI_COMM_WORLD);
+	if(my_rank ==0 ){
+		MPI_Status status;
+		float cal_global_sum=0;
+		for(int rank=1; rank< world_size; rank++){
+			float *recv_nums = (float *)malloc(sizeof(float) * 1000);;
+			float cal_local_sum = 0;
+        		MPI_Recv (recv_nums, 1000, MPI_FLOAT, rank, 1, MPI_COMM_WORLD, &status);
+			for (int j=0; j< 1000; j++){
+				cal_local_sum = cal_local_sum + recv_nums[j];
+			}
+			cal_global_sum = cal_global_sum +  cal_local_sum;
+		}
 
-    if(my_rank!=0 ){
-	int data_count = num_elements_per_proc;
-        int destination_rank = 0;
-        int TAG = 1;
-        MPI_Send(&rand_nums, data_count, MPI_FLOAT, destination_rank, 0, MPI_COMM_WORLD);
-	printf("SENT from rank %d\n", my_rank);
-    }else if (my_rank==0){
-        printf("reduced global sum %f\n", global_sum);
-	MPI_Status status;
-	float total_sum = 0;
-	float *rand_nums_recv = (float *)malloc(sizeof(float) * num_elements_per_proc);
+		cal_global_sum = cal_global_sum + local_sum;
+			
+		float diff = global_sum - cal_global_sum;
+		if(diff <0)
+			diff = diff * (-1);
 
-	for (int x = 1; x < world_size; x++){
-	    float *rand_nums_recv = (float *)malloc(sizeof(float) * num_elements_per_proc);
-	    MPI_Recv(&rand_nums_recv, num_elements_per_proc, MPI_FLOAT, x,0, MPI_COMM_WORLD, &status);
-	    printf("received from %d\n", x);
-	}
+		if(diff>0.001)
+			global_pass = 0;
+		else
+			global_pass = 1;
 
-	total_sum = total_sum + local_sum;
+		if(global_pass)
+			printf("TEST: PASS\n");	
 
-	if(total_sum == global_sum){
-	    printf("TEST: PASSED");
 	}else{
-	    printf("TEST: FAILED");
+		for(int x=0;x< 10; x++)
+		MPI_Send(rand_nums, num_elements_per_proc , MPI_FLOAT, 0, 1, MPI_COMM_WORLD); 
 	}
-
-	free(rand_nums_recv);
-    }
 
     free(rand_nums);
     MPI_Barrier(MPI_COMM_WORLD);
