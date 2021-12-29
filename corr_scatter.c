@@ -1,3 +1,4 @@
+
 #include <mpi.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -26,7 +27,10 @@ float compute_avg(float *array, int num_elements) {
 
 int main(int argc, char** argv) {
 
-  int num_elements_per_proc = 1000;//atoi(argv[1]);
+//    int DEBUG_LOG =0;
+  //  DEBUG_LOG = atoi(argv[1]);
+
+  int num_elements_per_proc = 1000;
 
   srand(time(NULL));
 
@@ -75,7 +79,6 @@ int main(int argc, char** argv) {
 	    passed = true;
 	}else{
 	    passed = false;
-	    //printf
 	    break;
         }
     }
@@ -87,6 +90,82 @@ int main(int argc, char** argv) {
 
     free(rand_nums);
   }
+
+    if(world_size > 4){
+        int color = my_rank % 2;
+        MPI_Comm New_Comm;
+        int new_id, new_world_size, broad_val;
+
+        MPI_Comm_split(MPI_COMM_WORLD, color, my_rank, &New_Comm);
+        MPI_Comm_rank(New_Comm, &new_id);
+        MPI_Comm_size(New_Comm, &new_world_size);
+
+        float *subcomm_rand_nums = NULL;
+        if (new_id == 0) {
+            subcomm_rand_nums = create_rand_nums(num_elements_per_proc * new_world_size);
+        }
+
+        float *subcomm_local_rand_nums = (float *)malloc(sizeof(float) * num_elements_per_proc);
+    
+        MPI_Scatter(subcomm_rand_nums, num_elements_per_proc, MPI_FLOAT, subcomm_local_rand_nums,
+              num_elements_per_proc, MPI_FLOAT, 0, New_Comm);
+
+        float subcomm_local_avg = compute_avg(subcomm_local_rand_nums, num_elements_per_proc);
+
+        if(new_id!=0){
+            int data_count = 1;
+            int destination_rank = 0;
+            int TAG = 1;
+            MPI_Send(&subcomm_local_avg, data_count, MPI_FLOAT, destination_rank, TAG, New_Comm);
+        }
+
+        if (new_id == 0) {    
+            float test_avg_float;
+            float temp_sum=0;
+            MPI_Status status;
+            int passed = 0;
+
+            for(int i=1; i< new_world_size; i++){
+                temp_sum = 0;
+                for(int j= i*1000; j < ((i+1)*1000) ; j++){
+                    temp_sum = temp_sum + subcomm_rand_nums[j]; 
+                }
+                float temp_avg = temp_sum/1000;
+
+                MPI_Recv(&test_avg_float, 1, MPI_FLOAT, i,1, New_Comm, &status);
+
+                if(temp_avg == test_avg_float){
+                    passed = 1;
+                }else{
+                    passed = 0;
+                    break;
+                }
+            }
+
+            if(my_rank==0){
+                int peer_pass;
+                MPI_Status temp_status;
+                MPI_Recv(&peer_pass, 1, MPI_INT, 1,2, MPI_COMM_WORLD, &temp_status);
+
+                passed = passed && peer_pass;
+
+                if(passed)
+                    printf("SUBCOM TEST: PASS\n");
+                else
+                    printf("SUBCOM TEST: FAIL\n");
+
+            }else{
+                int destination_rank = 0;
+                int TAG = 2;
+                MPI_Send(&passed, 1, MPI_INT, destination_rank, TAG, MPI_COMM_WORLD);
+            }
+
+            free(subcomm_local_rand_nums);
+            free(subcomm_rand_nums);
+        }
+
+    }
+
 
   free(sub_rand_nums);
 
