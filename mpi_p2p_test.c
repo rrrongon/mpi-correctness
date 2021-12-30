@@ -1,3 +1,7 @@
+#define RESET   "\033[0m"
+#define BLACK   "\033[30m"      /* Black */
+#define RED     "\033[31m"      /* Red */
+#define GREEN   "\033[32m" 
 #include <time.h>
 #include <stdio.h>
 #include  <mpi.h>
@@ -7,100 +11,137 @@
 #include <stdbool.h>
 
 int main(int argc, char** argv){
-    MPI_Init(NULL, NULL);
 
-    int my_rank;
-    MPI_Comm_rank(MPI_COMM_WORLD, &my_rank);
+	int DEBUG_LOG;
+	if(argv[1]==NULL)
+		DEBUG_LOG = 0;
+	else
+		DEBUG_LOG = atoi(argv[1]);
 
-    int world_size;
-    MPI_Comm_size(MPI_COMM_WORLD, &world_size);
+	MPI_Init(NULL, NULL);
 
-    int passing_value = -1;
-    int received_val;
+	int my_rank;
+	MPI_Comm_rank(MPI_COMM_WORLD, &my_rank);
 
-    double balance[5] = {1000.0, 2.0, 3.4, 7.0, 50.0};
-    double rec_array[5];
+	int world_size;
+	MPI_Comm_size(MPI_COMM_WORLD, &world_size);
 
-    char test_string[1000] ="Creates new communicators based on colors and keys. Creates new communicators based on colors and keys.Creates new communicators based on colors and keys.Creates new communicators based on colors and keys.Creates new communicators based on colors and keys.Creates new communicators based on colors and keys";
-    char rec_string[1000];
+	int test_int = -1;
+	int rec_val;
 
-    if(my_rank==0){
-        int destination_rank;
-        int count=1;
+	double test_array[5] = {1000.0, 2.0, 3.4, 7.0, 50.0};
+	double rec_array[5];
 
-        for (int i=1;i<world_size; i++){
-	    destination_rank=i;
-	    MPI_Send(&passing_value, count, MPI_INT, destination_rank, 0, MPI_COMM_WORLD);
-        }
+	char test_string[1000] ="Creates new communicators based on colors and keys. Creates new communicators based on colors and keys.Creates new communicators based on colors and keys.Creates new communicators based on colors and keys.Creates new communicators based on colors and keys.Creates new communicators based on colors and keys";
+	char rec_string[1000];
+
+	if(my_rank==0){
+		int dest_rank;
+		int data_cnt = 1;
+
+		MPI_Status status;
+		int tag;
+		int global_dec = 1;
+        	for (int i=1;i< world_size; i++){
+			tag = 3;
+	    		dest_rank = i;
+			int local_dec = 1;
+	    		MPI_Send(&test_int, data_cnt, MPI_INT, dest_rank, 0, MPI_COMM_WORLD);
+			MPI_Recv ( &rec_val, data_cnt, MPI_INT, i, tag, MPI_COMM_WORLD, &status);
+
+			if(rec_val!=test_int){
+				printf( RED "TEST INT: FAIL. Sent value %d, Received value %d in rank %d \n" RESET , test_int, rec_val, i) ;
+				local_dec = 0;
+			}else{
+				local_dec = 1;
+			}
+
+			global_dec = global_dec && local_dec;
+        	}
         
-	for (int i=1; i< world_size; i++){
-	    destination_rank=i;
-            MPI_Send(&balance, 5, MPI_DOUBLE, destination_rank, 1, MPI_COMM_WORLD); 
-	}
+		if(!global_dec)
+			printf("INT TEST: FAIL\n");
+		
+		double rec_array[5];
+		int arr_dec = 1;
+		for (int i=1; i< world_size; i++){
+	    		dest_rank=i;
+            		MPI_Send(&test_array, 5, MPI_DOUBLE, dest_rank, 1, MPI_COMM_WORLD); 
+
+			data_cnt = 5;
+			tag = 4;
+			MPI_Recv ( &rec_array, data_cnt, MPI_DOUBLE, i, tag, MPI_COMM_WORLD, &status);
+
+			int local_dec = 1;
+			for(int j=0; j< 5; j++){
+				if(test_array[j]!= rec_array[j]){
+					local_dec = 0; 
+				}
+			}
+			
+			if(!local_dec)
+				printf(RED "TEST ARRAY: FAIL. Rank %d\n"RESET, i);
+
+			arr_dec = arr_dec && local_dec;
+
+		}
+		
+		global_dec = global_dec && arr_dec;
+		if(!arr_dec)
+			printf(RED "ARRAY TEST: FAIL\n"RESET);
        
-        for (int i=1; i< world_size; i++){
-            destination_rank=i;
-            MPI_Send(&test_string, strlen(test_string), MPI_CHAR, destination_rank, 2, MPI_COMM_WORLD); 
-        }
+        	for (int i=1; i< world_size; i++){
+            		dest_rank=i;
+            		MPI_Send(&test_string, 1000, MPI_CHAR, dest_rank, 2, MPI_COMM_WORLD); 
+
+			tag = 5;
+			MPI_Recv ( &rec_string, 1000, MPI_CHAR, i, tag, MPI_COMM_WORLD, &status);
+
+                        int local_dec = 1;
+                        for(int j=0; j< 5; j++){
+                                if(test_string[j]!= rec_string[j]){
+                                        local_dec = 0;
+                                }
+                        }
+
+                        if(!local_dec)
+                                printf(RED "TEST STRING: FAIL. Rank %d\n"RESET, i);
+
+                        global_dec = global_dec && local_dec;
+
+        	}
+
+		if(global_dec)
+			printf("TEST: PASS\n");
+		else
+			printf(RED "TEST: FAIL\n" RESET);
  
-    }else if (my_rank!=0){
+    	}else if (my_rank!=0){
 
-        MPI_Status status;
+        	MPI_Status status;
+		int data_cnt = 1;
+		int from_rank = 0;
+		int tag = 0;
 
-        MPI_Recv ( &received_val, 1, MPI_INT, 0, 0, MPI_COMM_WORLD, &status);
+        	MPI_Recv ( &rec_val, data_cnt, MPI_INT, from_rank, tag, MPI_COMM_WORLD, &status);
+		
+		int dest_rank = 0;
+		tag = 3;
+		MPI_Send(&rec_val, data_cnt, MPI_INT, dest_rank, tag, MPI_COMM_WORLD);
 
-        if(status.MPI_TAG==0){
-            if (received_val != passing_value)
-                printf("Value did not match. Sent value %d, received value %d in rank %d \n", passing_value, received_val, my_rank) ;
-            else{
-                    //printf("Value matched in rank %d. Sent %d, Received %d \n",my_rank,  passing_value, received_val);
-		    printf("Test Passed: INT, RANK=%d\n", my_rank);
-		}
-        }
-
-        MPI_Recv(&rec_array, 5, MPI_DOUBLE, 0, 1, MPI_COMM_WORLD, &status);
-
-	bool mismatched = false;
-        if(status.MPI_TAG==1){
-	    for (int j=0; j<5; j++){
-		if(balance[j]==rec_array[j]){
-		    //printf("Matched double vals: %lf on rank %d\n", rec_array[j], my_rank);    
-		}
-		else{
-		    printf("---Mismatched val: on position %d, on rank %d, sent %lf, received %lf", j, my_rank, balance[j], rec_array[j]);
-		    mismatched = true;
-		    break;
-	    }
-	}
-	    if(mismatched){
-		printf("Test failed: Double Array, Rank=%d\n", my_rank);
-	    }else{
-		printf("Test Passed: DOUBLE Array, Rank=%d\n", my_rank);
-	    }
-
-    }
-
-    MPI_Recv(&rec_string, strlen(test_string), MPI_CHAR, 0, 2, MPI_COMM_WORLD, &status);
-
-        mismatched = false; 
-        if(status.MPI_TAG==2){
-            for (int j=0; j<strlen(test_string); j++){
-                if(test_string[j]==rec_string[j]){
-                    //printf("Matched char vals: %c on rank %d\n", rec_string[j], my_rank);     
-                }
-                else{
-                    printf("---Mismatched val: on position %d, on rank %d, sent %c, received %c", j, my_rank, test_string[j], rec_string[j]);
-                    mismatched = true;
-                    break;
-            }
-        }
-            if(mismatched){
-                printf("Test failed: Double Array, Rank=%d\n", my_rank);
-            }else{
-		printf("Test Passed: Char array, Rank=%d\n", my_rank);
-	    }
- 
-    }
+        	data_cnt = 5;
+		tag = 1;
+		MPI_Recv(&rec_array, data_cnt, MPI_DOUBLE, from_rank, tag, MPI_COMM_WORLD, &status);
+		
+		tag = 4;
+		MPI_Send(&rec_array, data_cnt, MPI_DOUBLE, dest_rank, tag, MPI_COMM_WORLD);
+        
+    		tag = 2;
+		MPI_Recv(&rec_string, 1000, MPI_CHAR, from_rank, tag, MPI_COMM_WORLD, &status);
+		
+		tag = 5;
+		data_cnt = 1000;
+		MPI_Send(&rec_string, 1000, MPI_CHAR, dest_rank, tag, MPI_COMM_WORLD);
 
     }
 
