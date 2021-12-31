@@ -1,3 +1,7 @@
+#define RESET   "\033[0m"
+#define BLACK   "\033[30m"      /* Black */
+#define RED     "\033[31m"      /* Red */
+#define GREEN   "\033[32m" 
 #include <stdio.h>
 #include <stdlib.h>
 #include <mpi.h>
@@ -8,15 +12,32 @@ int main(int argc, char* argv[])
 {
 
 	int DEBUG_LOG =0; 
-	DEBUG_LOG = atoi(argv[1]);
+	if(argv[1]==NULL)
+                DEBUG_LOG = 0;
+        else
+                DEBUG_LOG = atoi(argv[1]);
 
 	MPI_Init(&argc, &argv);
  
+	/*
+ * 	declare size of all possible processors
+ * 	assign rank to each process
+ * 	*/
 	int size;
 	MPI_Comm_size(MPI_COMM_WORLD, &size);
 	int my_rank;
 	MPI_Comm_rank(MPI_COMM_WORLD, &my_rank);
  
+	/*
+ * 	create reference input array for each process to calculate
+ *
+ *	0,100,200,300,
+ *	400,500,600,700,
+ *	800,900,1000,1100,
+ *	1200,1300,1400,1500
+ *
+ *	so for 4 process input would be created such this way
+ * */
 	int * input_int = malloc(sizeof(int) * size * size);
 	int index=0;
 	for (int i=0; i< size; i++){
@@ -26,6 +47,10 @@ int main(int argc, char* argv[])
 		}
     	}
 
+	/*
+ * 	Calculate portion of input for this process
+ *	i.e process 1 input is 400,500,600,700
+ * */
     	int * my_input = malloc(sizeof(int) * size);
     	for(int i = 0; i < size; i++){
         	my_input[i] = my_rank * size * 100 + i * 100;
@@ -33,54 +58,94 @@ int main(int argc, char* argv[])
 	
 
 	if (DEBUG_LOG){
+		printf("INFO: RANK %d input: ", my_rank);
                 for (int i=0; i< size; i++){
-                        printf("Process %d, my values = %d\n", my_rank, my_input[i]);
+                        printf(" %d,", my_input[i]);
                 }
+		printf("\n");
         }
 
+	/*
+ *	create receive buffer in each process 
+ *	each process will call routine
+ *	Each process should receive respective values by alltoall routine in buffer variable.
+ * */
         int* buffer_recv = malloc(sizeof(int) * size);
         MPI_Alltoall(my_input, 1, MPI_INT, buffer_recv, 1, MPI_INT, MPI_COMM_WORLD);
 
     	bool passed = false;
 
+	/*
+ *
+ *	Check values sent by routine alltoall is as expected for each process
+ *	extract expected value from reference array and compare with what received
+ * */
     	for (int i =0; i < size ; i++){
 		int my_buf_val = buffer_recv[i];
 		int global_val_pos = i *  size + my_rank ;
 		int global_val = input_int[global_val_pos];
-
+		
 		if (my_buf_val != global_val){
-	    		if(DEBUG_LOG)
+	    		/*if(DEBUG_LOG)
 	        		printf("Value MISMATCHED. Rank=%d, position=%d, received val=%d, actual val = %d\n", my_rank, i, my_buf_val, global_val);
+			*/
 	    		passed = false;
 	    		break;
 		}else{
-	    		if(DEBUG_LOG)
-	        		printf("Value MATCHED. Rank=%d, position=%d, received val=%d, actual val = %d\n", my_rank, i, my_buf_val, global_val);
+	    		/*if(DEBUG_LOG)
+	        		printf("MATCHED. Rank=%d, position=%d, received val=%d, actual val = %d\n", my_rank, i, my_buf_val, global_val);
+			*/
 	    		passed = true;
 		}
 
-	//printf("Values collected on process %d: %d\n", my_rank, buffer_recv[i]);
+		if(passed){
+			if(DEBUG_LOG)
+				printf("RANK %d: PASS\n", my_rank);
+		}else
+			printf(RED "RANK %d: FAIL\n" RESET, my_rank);
     	}
 
     	if(my_rank==0){
 		MPI_Status status;
 		bool pass_val_recv = true;
 		bool global_decision = true;
+
+		/*
+ *
+ *		If rank 0 itself passed, ask received value from other processes
+ *		Check if processes received expected value.
+ * */
 		if(passed){
 	    		for(int rank=1; rank < size; rank++){
 	    			MPI_Recv(&pass_val_recv, 1, MPI_INT, rank, 0, MPI_COMM_WORLD, &status);
 				if(!pass_val_recv){
 		    			global_decision = global_decision && pass_val_recv;
+					if(DEBUG_LOG)
+						printf(RED "TEST: FAIL. RANK %d\n" RESET, rank);
+				}else{
+					if(DEBUG_LOG)
+						printf("TEST: PASS. RANK %d\n", rank);
 				}
+				
 	    		}		
 
 	    		if(global_decision)
-				printf("GLOBAL TEST: PASS\n");
+				printf("TEST: PASS\n");
 	    		else
-				printf("GLOBAL TEST: FAIL");
+				printf(RED "TEST: FAIL\n" RESET);
+		
+		/*Rank 0 already failed*/
 		}else{
-	    		printf("TEST: FAIL\n");
+			/*
+ *			Already know test fail. However, need to catch recv routine sent by other processes
+ * */
+			for(int rank=1; rank < size; rank++){
+                                MPI_Recv(&pass_val_recv, 1, MPI_INT, rank, 0, MPI_COMM_WORLD, &status);
+                        }               
+	    		printf(RED "TEST: FAIL\n" RESET);
 		}
+
+	/*Other processes send their check result*/
     	}else{
 		int passed_val = 0;
 		if(passed)
@@ -91,7 +156,10 @@ int main(int argc, char* argv[])
 		MPI_Send(&passed_val, 1, MPI_INT, 0, 0, MPI_COMM_WORLD);
     	}
 
-	if(size > 4 ){	
+	if(size > 4 ){
+		/*Divide process by even and odd
+ *		create new comm world
+ * */
 		int color = my_rank % 2;
         	MPI_Comm New_Comm;
         	int new_id, new_world_size, broad_val;
@@ -116,15 +184,24 @@ int main(int argc, char* argv[])
         	}
 
         	if (DEBUG_LOG){
+			printf("SUBCOM RANK %d, NEW RANK %d. input: ", my_rank, new_id);
                 	for (int i=0; i< new_world_size; i++){
-                        	printf("Process %d, my values = %d\n", new_id, my_sub_input[i]);
+                        	printf(" %d ", my_sub_input[i]);
                 	}
+			printf("\n");
         	}
 
 		int* sub_buffer_recv = malloc(sizeof(int) * new_world_size);
         	MPI_Alltoall(my_sub_input, 1, MPI_INT, sub_buffer_recv, 1, MPI_INT, New_Comm);
 
         	passed = false;
+
+		/*
+ *
+ *		Each process inside subcom will check it's received value from alltoall routine with
+ *		reference input array. Compare what is expected and what process received.
+ *
+ * 		*/
 
 		for (int i =0; i < new_world_size ; i++){
                 	int my_sub_buf_val = sub_buffer_recv[i];
@@ -133,18 +210,23 @@ int main(int argc, char* argv[])
 
                 	if (my_sub_buf_val != global_sub_val){
                         	if(DEBUG_LOG)
-                                	printf("SUBCOMM Value MISMATCHED. Rank=%d,new_rank=%d, position=%d, received val=%d, actual val = %d\n", my_rank, new_id, i, my_sub_buf_val, global_sub_val);
+                                	printf(RED "SUBCOMM FAIL:  Rank=%d,newrank=%d, sent: %d, received: %d\n" RESET, my_rank, new_id,  global_sub_val, my_sub_buf_val);
                         	passed = false;
                         	break;
                 	}else{
                         	if(DEBUG_LOG)
-                                	printf("SUBCOMM Value MATCHED. Rank=%d, new_rank=%d, position=%d, received val=%d, actual val = %d\n", my_rank, new_id, i, my_sub_buf_val, global_sub_val);
+                                	printf("SUBCOMM Rank=%d, new_rank=%d, sent: %d, received: %d\n", my_rank, new_id, global_sub_val, my_sub_buf_val);
                         	passed = true;
                 	}
         	}
 
 		bool sub_global_decision = true;
 
+
+		/*
+ *
+ *		Now Each process send it's after check decision to root process to make global decision.
+ * 		*/
 		if(new_id == 0){
                 	MPI_Status status;
                 	bool recv_sub_val = true;
@@ -153,6 +235,8 @@ int main(int argc, char* argv[])
                                 	MPI_Recv(&recv_sub_val, 1, MPI_INT, rank, 0, New_Comm, &status);
                                 	if(!recv_sub_val){
                                         	sub_global_decision = sub_global_decision && recv_sub_val;
+						if(DEBUG_LOG)
+							printf(RED "FAIL: RANK: %d, new rank: %d. Sent:%d, Received:%d\n" RESET, my_rank, new_id );
                                 	}
                         	}
 
@@ -162,6 +246,11 @@ int main(int argc, char* argv[])
                                 	printf("SUBCOMM TEST: FAIL");*/
                 	}
         	}else{
+			/*
+ *
+ *			Send checked decision to root process inside NEW COMM 
+ *
+ * 			*/
                 	int sub_passed_val = 0;
                 	if(passed)
                         	sub_passed_val = 1;
@@ -172,6 +261,7 @@ int main(int argc, char* argv[])
         	}
 
 		if(my_rank == 0 && new_id == 0){
+			/*Receives decision from root which is not root for WORLDCOMM*/
 			MPI_Status status;
 			int recv_subcom_val;
 			MPI_Recv(&recv_subcom_val, 1, MPI_INT, 1, 0, MPI_COMM_WORLD, &status);
@@ -179,9 +269,14 @@ int main(int argc, char* argv[])
 			if(sub_global_decision && recv_subcom_val)
 				printf("SUBCOM TEST: PASS\n");
 			else
-				printf("SUBCOM TEST: FAIL\n");
+				printf(RED"SUBCOM TEST: FAIL\n"RESET);
 	
 		}else if(new_id == 0 && my_rank != 0){
+			/*
+ *
+ *			one root of NEWCOMM but not root in WORLD COMM sends decision to WORLDCOMM root
+ *
+ * */
 			if (sub_global_decision){
 				int pass = 1;
 				MPI_Send(&pass, 1, MPI_INT, 0, 0, MPI_COMM_WORLD);
