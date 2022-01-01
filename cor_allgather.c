@@ -1,9 +1,23 @@
+#define RESET   "\033[0m"
+#define BLACK   "\033[30m"      /* Black */
+#define RED     "\033[31m"      /* Red */
+#define GREEN   "\033[32m" 
+
 #include <mpi.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <time.h>
 #include <stdbool.h>
 
+/*
+ *
+ * Allgather: Root process generates data to process. Scatters to processes
+ * Processes runs operation over those different input
+ * send result to root
+ * Root checks if calculation is correctly done
+*/
+
+/*Generating random numbers for input*/
 float *create_rand_nums(int num_elements) {
 
         float *rand_nums = (float *)malloc(sizeof(float) * num_elements);
@@ -16,7 +30,7 @@ float *create_rand_nums(int num_elements) {
         return rand_nums;
 }
 
-
+/*Computing average for particular count of numbers*/
 float compute_avg(float *array, int num_elements) {
         float sum = 0.f;
         int i;
@@ -30,11 +44,13 @@ float compute_avg(float *array, int num_elements) {
 
 int main(int argc, char** argv) {
 
-        int DEBUG_LOG =0;
-        DEBUG_LOG = atoi(argv[1]);
+	int DEBUG_LOG =0; 
+	if(argv[1]==NULL)
+                DEBUG_LOG = 0;
+        else
+                DEBUG_LOG = atoi(argv[1]);
 
-        int num_elements_per_proc = 1000;//atoi(argv[1]);
-
+	int num_elements_per_proc = 1000;
         srand(time(NULL));
 
         MPI_Init(NULL, NULL);
@@ -44,6 +60,11 @@ int main(int argc, char** argv) {
         int world_size;
         MPI_Comm_size(MPI_COMM_WORLD, &world_size);
 
+	/*
+ *	Root generates input data to distribute task among all process
+ *	sub_rand_nums to accept sub-task input from root
+ * 	*/
+
         float *rand_nums = NULL;
         if (my_rank == 0) {
                 rand_nums = create_rand_nums(num_elements_per_proc * world_size);
@@ -51,11 +72,18 @@ int main(int argc, char** argv) {
 
         float *sub_rand_nums = (float *)malloc(sizeof(float) * num_elements_per_proc);
 
+	/*
+ *	Each process call scatter routine to accept sub-input from root
+ * 	*/
 
         MPI_Scatter(rand_nums, num_elements_per_proc, MPI_FLOAT, sub_rand_nums, num_elements_per_proc, MPI_FLOAT, 0, MPI_COMM_WORLD);
 
+	/*Compute average assigned to each process*/
         float sub_avg = compute_avg(sub_rand_nums, num_elements_per_proc);
 
+	/*Call Allgather routine from each process
+ *	Need memory to receive avg from all other processes
+ * 	*/	
         float *sub_avgs = (float *)malloc(sizeof(float) * world_size);
         MPI_Allgather(&sub_avg, 1, MPI_FLOAT, sub_avgs, 1, MPI_FLOAT, MPI_COMM_WORLD);
 
@@ -67,7 +95,10 @@ int main(int argc, char** argv) {
         MPI_Barrier(MPI_COMM_WORLD);
 
         if (my_rank == 0) {
-
+		
+		/*
+ *		Calculate all value average in root process to check final average received from sub-tasks
+ * 		*/
                 float all_value_avg = compute_avg(rand_nums, num_elements_per_proc * world_size);
 
                 MPI_Status status;
@@ -75,16 +106,21 @@ int main(int argc, char** argv) {
                 float avg_recv = 0;
                 int local_pass = 1;
                 float diff = avg - all_value_avg;
-
+		/*Since average might be few points deviated from one process to another
+ *		We can accept few decimals deviation from what rank 0 calculated and what was received from all process
+ * 		*/
                 if (diff >0.001){
                         global_pass = 0;
                         if(DEBUG_LOG)
-                                printf("avg did not match. allgather avg=%f, calculated avg=%f\n", avg, all_value_avg );
+                                printf(RED "FAIL: RANK 0. allgather: %f, calculated: %f\n", avg, all_value_avg );
                 }else{
                         if(DEBUG_LOG)
-                                printf("avg is EQUAL. allgather avg=%f, calculated avg=%f\n", avg, all_value_avg);
+                                printf("RANK 0: allgather: %f, calculated: %f\n", avg, all_value_avg);
                 }
 
+		/*
+ *		Receive at rank 0 what other processes received by allgather routine.
+ * 		*/
                 for(int rank=1; rank < world_size; rank++){
 
                         MPI_Recv(&avg_recv, 1, MPI_FLOAT, rank, 0, MPI_COMM_WORLD, &status);
@@ -98,6 +134,13 @@ int main(int argc, char** argv) {
 
                         global_pass = global_pass && local_pass;
 
+			if(DEBUG_LOG){
+				if(local_pass)
+					printf("RANK %d: calculated: %f, reference: %f\n", rank, avg_recv, all_value_avg);
+				else
+					printf(RED"RANK: %d FAIL. Calculated: %f, reference: %f  "RESET, rank, avg_recv, all_value_avg);
+			}				
+
                 }
 
                 free(rand_nums);
@@ -108,6 +151,7 @@ int main(int argc, char** argv) {
                         printf("TEST: FAIL\n");
 
         }else{
+		/*Send calculated value received by routine to rank 0 to check*/
                 MPI_Send(&avg, 1, MPI_FLOAT, 0, 0, MPI_COMM_WORLD);
         }
 
@@ -121,10 +165,13 @@ int main(int argc, char** argv) {
                 int color = my_rank % 2;
             	int new_id, new_world_size, broad_val;
 
-        	    MPI_Comm_split(MPI_COMM_WORLD, color, my_rank, &New_Comm);
-        	    MPI_Comm_rank(New_Comm, &new_id);
-        	    MPI_Comm_size(New_Comm, &new_world_size);
+		MPI_Comm_split(MPI_COMM_WORLD, color, my_rank, &New_Comm);
+        	MPI_Comm_rank(New_Comm, &new_id);
+        	MPI_Comm_size(New_Comm, &new_world_size);
 
+		/*
+ *		each subcomm world might have different number of processes.
+ * 		*/
                 float *rand_nums = NULL;
                 if (new_id == 0 && my_rank == 0) {
                     rand_nums = create_rand_nums(num_elements_per_proc * new_world_size);
@@ -134,17 +181,22 @@ int main(int argc, char** argv) {
 
                 float *sub_rand_nums = (float *)malloc(sizeof(float) * num_elements_per_proc);
 
+		/*
+ *		Scatter sub-task among processes
+ *		Complete subtask
+ *		Each process call routine to collect subtasks from other
+ * 		*/
                 MPI_Scatter(rand_nums, num_elements_per_proc, MPI_FLOAT, sub_rand_nums, num_elements_per_proc, MPI_FLOAT, 0, New_Comm);
 
                 float sub_avg = compute_avg(sub_rand_nums, num_elements_per_proc);
-
+		
                 float *sub_avgs = (float *)malloc(sizeof(float) * new_world_size);
                 MPI_Allgather(&sub_avg, 1, MPI_FLOAT, sub_avgs, 1, MPI_FLOAT, New_Comm);
 
                 float avg = compute_avg(sub_avgs, new_world_size);
 
                 if(DEBUG_LOG)
-                    printf("SUBCOMM: Avg of all elements from proc %d is %f\n", new_id, avg);
+                    printf("SUBCOMM:  RANK %d,NEW RANK %d,SUB-TASK AVG: %f, TASK AVG: %f\n", my_rank, new_id,sub_avg, avg);
 
                 MPI_Barrier(New_Comm);
 		
@@ -163,10 +215,10 @@ int main(int argc, char** argv) {
                         if (diff >0.001){
                                 subcomm_pass = 0;
                                 if(DEBUG_LOG)
-                                        printf("avg did not match. allgather avg=%f, calculated avg=%f\n", avg, all_value_avg );
+                                        printf(RED"SUBCOM NEWID %d: FAIL. Routine Calculation=%f, EXPECTED=%f\n"RESET,new_id, avg, all_value_avg );
                         }else{
                                 if(DEBUG_LOG)
-                                        printf("avg is EQUAL. allgather avg=%f, calculated avg=%f\n", avg, all_value_avg);
+					printf("SUBCOM NEWID %d: OK. Routine Calculation=%f, EXPECTED=%f\n",new_id, avg, all_value_avg );
                         }
 
                         for(int rank=1; rank < new_world_size; rank++){
@@ -182,24 +234,32 @@ int main(int argc, char** argv) {
 
                                 subcomm_pass = subcomm_pass && local_pass;
 
-
+				if(DEBUG_LOG)
+					printf("NEWID %d: Routine Calculation: %f, EXPECTED: %f. LOCAL STATUS: %d\n", rank, avg_recv, all_value_avg, local_pass);
                         }
 
                     free(rand_nums);
 
                 }else{
-                    MPI_Send(&avg, 1, MPI_FLOAT, 0, 0, New_Comm);
+			//Send calculated average value to root
+			int cnt = 1;
+			int dest_rank = 0;
+			int tag = 0;
+                	MPI_Send(&avg, cnt, MPI_FLOAT, dest_rank, tag, New_Comm);
                 }
 
+		/*
+ *		One subcom root send decision to global root to make ultimate check
+ * 		*/
                 if (my_rank ==0 && new_id == 0 ) {
                         MPI_Status status;
-			            int recv_subcom_pass;
-			            MPI_Recv(&recv_subcom_pass, 1, MPI_INT, 1, 0, MPI_COMM_WORLD, &status);
+			int recv_subcom_pass;
+			MPI_Recv(&recv_subcom_pass, 1, MPI_INT, 1, 0, MPI_COMM_WORLD, &status);
 
                         if(recv_subcom_pass && subcomm_pass )
                                 printf("SUBCOMM TEST: PASS\n");
                         else
-                                printf("SUBCOMM TEST: FAIL \n");
+                                printf(RED"SUBCOMM TEST: FAIL \n"RESET);
 
                 }else if(my_rank != 0 && new_id == 0) {
                     MPI_Send(&subcomm_pass, 1, MPI_INT, 0, 0, MPI_COMM_WORLD);
