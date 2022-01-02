@@ -1,3 +1,7 @@
+#define RESET   "\033[0m"
+#define BLACK   "\033[30m"      /* Black */
+#define RED     "\033[31m"      /* Red */
+#define GREEN   "\033[32m" 
 #include <stdio.h>
 #include <stdlib.h>
 #include <mpi.h>
@@ -6,8 +10,11 @@
 
 int main(int argc, char* argv[]){
     
-        int DEBUG_LOG =0; 
-    	DEBUG_LOG = atoi(argv[1]);
+	int DEBUG_LOG =0; 
+	if(argv[1]==NULL)
+                DEBUG_LOG = 0;
+        else
+                DEBUG_LOG = atoi(argv[1]);
 
 	MPI_Init(NULL,NULL);
 
@@ -17,7 +24,7 @@ int main(int argc, char* argv[]){
     	MPI_Comm_rank(MPI_COMM_WORLD, &my_rank);
 
     	int root=0;
-
+	/*Broadcast some large int value*/
     	int min_int;
         if(my_rank==0) 
                 min_int = -9999999;
@@ -30,21 +37,30 @@ int main(int argc, char* argv[]){
 		MPI_Status status;
 		int min_val_recv;
 	
-		bool passed = false;
-
+		bool passed = true;
+		/*Ask from all process what they received via broadcast routine
+ *		Check if received value is equal to what was sent by root
+ * 		*/
 		for(int i=1;i< size; i++){
 	    		MPI_Recv(&min_val_recv, data_count, MPI_INT, i,1, MPI_COMM_WORLD, &status);
 	    		if(min_val_recv == min_int){
-				passed = true;
+				passed = passed && true;
 	    		}else{
-				passed = false;
-				break;
+				passed = passed && false;
 	    		}
+
+			if(passed){
+				if(DEBUG_LOG)
+					printf("TEST: INT; PASS. RANK %d\n",i);
+			}else{
+				printf(RED"TEST: FAIL. RANK %d. EXPECTED: %d, RECEIVED: %d\n"RESET, i,min_int,min_val_recv);
+			}
 		}
 
 		global_pass = global_pass && passed;
 
     	}else{
+		/*Send received value via routine to root for cross-match*/
 		int min_val_recv;
 		int data_count=1;
 		MPI_Status status;
@@ -53,7 +69,7 @@ int main(int argc, char* argv[]){
 	        MPI_Send(&min_int, data_count, MPI_INT, destination_rank, 1, MPI_COMM_WORLD);	
     	}
 
-    	
+    	//Array test
 	float * test_array = (float *) malloc( sizeof(float) * 5);
         if(my_rank==0){
 		for(int i=0;i<5;i++)
@@ -67,21 +83,24 @@ int main(int argc, char* argv[]){
         	MPI_Status status;
         	float * test_array_rec = (float *) malloc( sizeof(float) * 5);
 
-        	bool passed = false;
+        	bool passed = true;
         
 		for(int i=1;i< size; i++){
             		MPI_Recv(test_array_rec, data_count, MPI_FLOAT, i,1, MPI_COMM_WORLD, &status);
 	    		for(int j=0; j< 5; j++){
 				if(test_array_rec[j]==test_array[j])
-		    			passed = true;
+		    			passed = passed && true;
 				else{
-		    			passed = false;
-		    			break;
+		    			passed = passed && false;
+		    	
 				}
 	    		}
 	    
 			if(!passed)
-				printf("RANK %d FAILED\n", i);
+				printf(RED "TEST: ARRAY. RANK %d FAILED\n", i);
+
+			if(passed && DEBUG_LOG)
+				printf("TEST: ARRAY PASS. RANK %d\n", i);
 	    
         	}
 
@@ -107,21 +126,22 @@ int main(int argc, char* argv[]){
         	MPI_Status status;
         	char * test_string_rec = (char *)malloc(sizeof(char) * 1000);
 
-        	bool passed = false;
+        	bool passed = true;
         	for(int i=1;i< size; i++){
             		MPI_Recv(test_string_rec, 1000, MPI_CHAR, i,1, MPI_COMM_WORLD, &status);
             		for(int j=0; j< data_count; j++){
                 		if(test_string_rec[j]==test_string[j])
-                    			passed = true;
+                    			passed = passed && true;
                 		else{
-                    			passed = false;
-                    			break;
+                    			passed = passed && false;
                 		}
             		}
             
 			if(!passed)
-          		      printf("CHAR RANK %d FAILED\n", i);
-           
+                                printf(RED "TEST: CHAR. RANK %d FAILED\n", i);
+
+                        if(passed && DEBUG_LOG)
+                                printf("TEST: CHAR PASS. RANK %d\n", i); 
         	}
 
         	global_pass = global_pass && passed;
@@ -137,10 +157,11 @@ int main(int argc, char* argv[]){
         	if(global_pass)
                     	printf("TEST: PASS\n");
            	 else
-                    printf("TEST: FAIL\n");
+                    printf(RED"TEST: FAIL\n"RESET);
     	}
 
         if(size > 4){
+		//Create New world
                 int color = my_rank % 2;
                 MPI_Comm New_Comm;
                 int new_id, new_world_size, broad_val;
@@ -163,26 +184,40 @@ int main(int argc, char* argv[]){
                         MPI_Status status;
                         int subcomm_min_val_recv;
             
-                        int subcomm_passed = 0;
+                        int subcomm_passed = 1;
 
                         for(int i=1;i< new_world_size; i++){
                                 MPI_Recv(&subcomm_min_val_recv, data_count, MPI_INT, i,1, New_Comm, &status);
                                 if(subcomm_min_val_recv == subcomm_min_int){
-                                        subcomm_passed = 1;
+                                        subcomm_passed = subcomm_passed && 1;
                                 }else{
-                                        subcomm_passed = 0;
-                                        break;
+                                        subcomm_passed = subcomm_passed && 0;
                                 }
+
+				if(subcomm_passed){
+                                	if(DEBUG_LOG)
+                                        	printf("TEST: INT; PASS. RANK %d\n", i);
+                        	}else{
+                                	printf(RED"TEST: FAIL. NEWRANK %d. EXPECTED: %d, RECEIVED: %d\n"RESET, i,subcomm_min_int, subcomm_min_val_recv);
+                        	}
                         }
                         
                         subcomm_global_pass = subcomm_global_pass && subcomm_passed;
-
+			
+			/*Share inter subcomm-root decision*/
                         if(my_rank==0){
                                 MPI_Status temp_status;
                                 int subcomm_global_pass_recv;
                                 MPI_Recv(&subcomm_global_pass_recv, 1, MPI_INT, 1, 1, MPI_COMM_WORLD, &temp_status);
 
                                 subcomm_final_pass = subcomm_final_pass && subcomm_global_pass_recv;
+
+				if(DEBUG_LOG){
+					if(subcomm_final_pass)
+						printf("SUBCOMM TEST: INT PASS");
+					else
+						printf(RED"SUBCOMM TEST: INT FAIL" RESET);
+				}		
                         }else{
                                 MPI_Send(&subcomm_global_pass, 1, MPI_INT, 0, 1, MPI_COMM_WORLD);
                         }
@@ -195,6 +230,7 @@ int main(int argc, char* argv[]){
                         MPI_Send(&subcomm_min_int, data_count, MPI_INT, destination_rank, 1, New_Comm);	
                 }
 
+		/*Generate input data in root to broadcast*/
                 float * subcomm_test_array = (float *)malloc(sizeof(float) * 5);;
                 if(new_id==0)
 			for(int i=0;i<5;i++)
@@ -206,21 +242,30 @@ int main(int argc, char* argv[]){
                         MPI_Status status;
                         float * subcomm_test_array_rec =  (float *)malloc(sizeof(float) * 5);;
 
-                        int subcomm_passed = 0;
+                        int subcomm_passed = 1;
                     
                         for(int i=1;i< new_world_size; i++){
-                                MPI_Recv(subcomm_test_array_rec, 5, MPI_FLOAT, i,1, New_Comm, &status);
+				int local_pass = 1;
+				int data_cnt = 5;
+				int tag = 1;
+                                MPI_Recv(subcomm_test_array_rec, data_cnt, MPI_FLOAT, i, tag, New_Comm, &status);
                                 for(int j=0; j< 5; j++){
-                                        if(subcomm_test_array_rec[j]==subcomm_test_array[j])
-                                                subcomm_passed = 1;
-                                        else{
-                                                subcomm_passed = 0;
-                                                break;
+                                        if(subcomm_test_array_rec[j]==subcomm_test_array[j]){
+                                                subcomm_passed = subcomm_passed && 1;
+						local_pass = local_pass && 1;
+                                        }else{
+                                                subcomm_passed = subcomm_passed && 0;
+						local_pass = local_pass && 0;
                                         }
+
                                 }
-                        
-                            	if(!subcomm_passed)
-                                	printf("RANK %d FAILED\n", i);
+
+				if(DEBUG_LOG){
+                                	if(local_pass)
+                                        	printf("TEST ARRAY: NEWRANK %d PASS.\n", i);
+                                        else
+                                        	printf(RED"TEST ARRAY: NEWRANK %d FAIL\n" RESET, i);
+                                }
                         
                         }
 
@@ -232,6 +277,14 @@ int main(int argc, char* argv[]){
                                 MPI_Recv(&subcomm_global_pass_recv, 1, MPI_INT, 1, 1, MPI_COMM_WORLD, &temp_status);
 
                                 subcomm_final_pass = subcomm_final_pass && subcomm_global_pass_recv;
+
+				if(DEBUG_LOG){
+					if(subcomm_final_pass)
+						printf("SUBCOMM TEST ARRAY: PASS\n");
+					else
+						printf(RED"SUBCOMM TEST ARRAY: FAIL\n"RESET);
+				}
+				
                         }else{
                                 MPI_Send(&subcomm_global_pass, 1, MPI_INT, 0, 1, MPI_COMM_WORLD);
                         }
@@ -255,25 +308,31 @@ int main(int argc, char* argv[]){
                         MPI_Status status;
                         char * subcomm_test_string_rec =  (char *)malloc(sizeof(char) * 1000);
 
-                        int subcomm_passed = 0;
+                        int subcomm_passed = 1;
                         for(int i=1;i< new_world_size; i++){
+				int local_pass = 1;
                                 MPI_Recv(subcomm_test_string_rec, 1000, MPI_CHAR, i,1, New_Comm, &status);
                                 for(int j=0; j< 1000; j++){
-                                    if(subcomm_test_string_rec[j]==subcomm_test_string[j])
-                                            subcomm_passed = 1;
-                                    else{
-                                            subcomm_passed = 0;
-                                            break;
+                                    if(subcomm_test_string_rec[j]==subcomm_test_string[j]){
+                                            subcomm_passed = subcomm_passed && 1;
+						local_pass = local_pass && 1;
+                                    }else{
+                                            subcomm_passed = subcomm_passed && 0;
+						local_pass = local_pass && 0;
                                     }
                                 }
-                        
-                        	if(!subcomm_passed)
-                                	printf("CHAR RANK %d FAILED\n", i);
-                    
+                       		
+				if(DEBUG_LOG){
+                                        if(local_pass)
+                                                printf("TEST CHAR: NEWRANK %d PASS.\n", i);
+                                        else
+                                                printf(RED"TEST CHAR: NEWRANK %d FAIL\n" RESET, i);
+                                } 
                         }
-
+ 
                         subcomm_global_pass = subcomm_global_pass && subcomm_passed;
-
+			
+			/*Inter subcomm root decision share*/
                         if(my_rank==0){
                                 MPI_Status temp_status;
                                 int subcomm_global_pass_recv;
@@ -284,7 +343,7 @@ int main(int argc, char* argv[]){
 				if(subcomm_final_pass)
                                 	printf("SUBCOMM TEST: PASS\n");
                         	else
-                                	printf("SUBCOMM TEST: FAIL\n");
+                                	printf(RED"SUBCOMM TEST: FAIL\n"RESET);
 
                         }else{
                                 MPI_Send(&subcomm_global_pass, 1, MPI_INT, 0, 1, MPI_COMM_WORLD);
