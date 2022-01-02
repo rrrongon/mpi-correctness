@@ -1,3 +1,7 @@
+#define RESET   "\033[0m"
+#define BLACK   "\033[30m"      /* Black */
+#define RED     "\033[31m"      /* Red */
+#define GREEN   "\033[32m" 
 #include <time.h>
 #include <stdio.h>
 #include  <mpi.h>
@@ -17,15 +21,23 @@ float *create_rand_nums(int num_elements) {
 
 int main(int argc, char** argv) {
 
+	int DEBUG_LOG =0; 
+	if(argv[1]==NULL)
+                DEBUG_LOG = 0;
+        else
+                DEBUG_LOG = atoi(argv[1]);
+
 	int num_elements_per_proc = 1000;
 
-   	 MPI_Init(NULL, NULL);
+   	MPI_Init(NULL, NULL);
 
     	int my_rank;
     	MPI_Comm_rank(MPI_COMM_WORLD, &my_rank);
     	int world_size;
     	MPI_Comm_size(MPI_COMM_WORLD, &world_size);
 
+	/*Generate subtask of random number in each process
+ * 	Calculate sum in each process*/
     	srand(time(NULL)*my_rank);
     	float *rand_nums = NULL;
     	rand_nums = create_rand_nums(num_elements_per_proc);
@@ -35,6 +47,10 @@ int main(int argc, char** argv) {
         	local_sum += rand_nums[i];
     	}
 
+	if(DEBUG_LOG)
+		printf("SUM in RANK %d: %f\n", my_rank, local_sum);
+
+	// Call routine and get sum in root 
     	float global_sum;
     	int root = 0;
 
@@ -51,11 +67,14 @@ int main(int argc, char** argv) {
                         MPI_Recv (recv_nums, 1000, MPI_FLOAT, rank, 1, MPI_COMM_WORLD, &status);
                         for (int j=0; j< 1000; j++){
                                 cal_local_sum = cal_local_sum + recv_nums[j];
-                                }
+                        }
                         cal_global_sum = cal_global_sum +  cal_local_sum;
                 }
 
                 cal_global_sum = cal_global_sum + local_sum;
+
+		if(DEBUG_LOG)
+			printf("Calculated SUM: %f, Routine SUM: %f\n", cal_global_sum, global_sum);
 
                 float diff = global_sum - cal_global_sum;
                 if(diff <0)
@@ -68,7 +87,8 @@ int main(int argc, char** argv) {
 
                 if(global_pass)
                         printf("TEST: PASS\n");
-
+		else	
+			printf(RED"TEST: FAIL\n"RESET);
         }else{
                 MPI_Send(rand_nums, num_elements_per_proc , MPI_FLOAT, 0, 1, MPI_COMM_WORLD);
         }
@@ -91,6 +111,9 @@ int main(int argc, char** argv) {
                     	subcom_local_sum += subcom_rand_nums[i];
                 }
 
+		if(DEBUG_LOG)
+			printf("SUM in NEWRANK %d: %f\n", new_id, subcom_local_sum);
+
                 float subcom_global_sum;
                 int root = 0;
 
@@ -112,6 +135,8 @@ int main(int argc, char** argv) {
                         }
 
                         subcom_cal_global_sum = subcom_cal_global_sum + subcom_local_sum;
+			if(DEBUG_LOG)
+				printf("SUM Calculated SUBCOMM ROOT: %f and SUM by ROutine: %f\n", subcom_cal_global_sum, subcom_global_sum);
 
                         float diff = subcom_global_sum - subcom_cal_global_sum;
                         if(diff <0)
@@ -122,6 +147,7 @@ int main(int argc, char** argv) {
                         else
                                 subcom_global_pass = 1;
 
+			/*Inter subcomm root decision exchange*/
                         if(my_rank ==0){
                                 int subcom_global_pass_recv;
                                 MPI_Recv (&subcom_global_pass_recv, 1, MPI_INT, 1, 1, MPI_COMM_WORLD, &subcom_status);
@@ -129,7 +155,7 @@ int main(int argc, char** argv) {
                                 if(subcom_global_pass && subcom_global_pass_recv)
                                         printf("SUBCOMM TEST: PASS\n");
                                 else
-                                        printf("SUBCOMM TEST: FAIL\n");
+                                        printf(RED"SUBCOMM TEST: FAIL\n"RESET);
                         }else{
                                 MPI_Send(&subcom_global_pass, 1 , MPI_INT, 0, 1, MPI_COMM_WORLD);
                         }
