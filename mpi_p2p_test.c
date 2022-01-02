@@ -54,14 +54,20 @@ int main(int argc, char** argv){
 				local_dec = 0;
 			}else{
 				local_dec = 1;
+				if(DEBUG_LOG)
+					printf("TEST INT: RANK %d PASS\n", i);
 			}
 
 			global_dec = global_dec && local_dec;
         	}
         
-		if(!global_dec)
-			printf("INT TEST: FAIL\n");
-		
+		if(!global_dec){
+			printf(RED"INT TEST: FAIL\n"RESET);
+		}else{
+			if(DEBUG_LOG)
+				printf("INT TEST: PASS\n");
+		}
+
 		double rec_array[5];
 		int arr_dec = 1;
 		for (int i=1; i< world_size; i++){
@@ -81,15 +87,21 @@ int main(int argc, char** argv){
 			
 			if(!local_dec)
 				printf(RED "TEST ARRAY: FAIL. Rank %d\n"RESET, i);
-
+			if(DEBUG_LOG)
+				if(local_dec)
+					printf("RANK %d: ARRAY PASS\n", i);
 			arr_dec = arr_dec && local_dec;
-
 		}
 		
 		global_dec = global_dec && arr_dec;
-		if(!arr_dec)
+		
+		if(!arr_dec){
 			printf(RED "ARRAY TEST: FAIL\n"RESET);
-       
+       		}else{
+			if(DEBUG_LOG)
+				printf(RED"ARRAY TEST: PASS\n"RESET);
+		}
+
         	for (int i=1; i< world_size; i++){
             		dest_rank=i;
             		MPI_Send(&test_string, 1000, MPI_CHAR, dest_rank, 2, MPI_COMM_WORLD); 
