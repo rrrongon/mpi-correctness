@@ -1,4 +1,4 @@
-MPICC := $(shell which mpicc)
+MPICC := /home/sadeghil/Installed_Tools/SMVAPICH/bin/mpicc
 all: allgather allreduce alltoall bcast reduce scatter p2p
 
 allgather: 
