@@ -121,7 +121,8 @@ int main(int argc, char** argv) {
 		/*
  *		Receive at rank 0 what other processes received by allgather routine.
  * 		*/
-                for(int rank=1; rank < world_size; rank++){
+		int rank;
+                for(rank=1; rank < world_size; rank++){
 
                         MPI_Recv(&avg_recv, 1, MPI_FLOAT, rank, 0, MPI_COMM_WORLD, &status);
                         diff = all_value_avg - avg_recv;
@@ -220,8 +221,8 @@ int main(int argc, char** argv) {
                                 if(DEBUG_LOG)
 					printf("SUBCOM NEWID %d: OK. Routine Calculation=%f, EXPECTED=%f\n",new_id, avg, all_value_avg );
                         }
-
-                        for(int rank=1; rank < new_world_size; rank++){
+			int rank;
+                        for(rank=1; rank < new_world_size; rank++){
 
                                 MPI_Recv(&avg_recv, 1, MPI_FLOAT, rank, 0, New_Comm, &status);
                                 diff = all_value_avg - avg_recv;

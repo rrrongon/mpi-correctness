@@ -72,11 +72,12 @@ int main(int argc, char** argv) {
 		/*Receives sub-task input data from all process to calculate Final sum for reference*/
 		int tag = 3;
 		float sum=0;
-		int cnt = num_elements_per_proc;
-		for(int rank=1; rank < world_size; rank++){
+		int cnt = num_elements_per_proc, rank;
+		for(rank=1; rank < world_size; rank++){
 			float *input_recv_buf = (float *)malloc(sizeof(float) * num_elements_per_proc);
 			MPI_Recv(input_recv_buf, cnt, MPI_FLOAT, rank, tag , MPI_COMM_WORLD, &status);
-			for (int j=0;j < cnt;j++)
+                        int j;
+			for ( j=0;j < cnt;j++)
 				sum += input_recv_buf[j];
 
 			if(DEBUG_LOG)
@@ -95,7 +96,7 @@ int main(int argc, char** argv) {
                 bool passed = true;
 		tag = 1;
 		cnt = 1;
-                for (int rank=1; rank < world_size; rank++){
+                for ( rank=1; rank < world_size; rank++){
                         MPI_Recv(&global_sum_recv, cnt, MPI_FLOAT, rank, tag, MPI_COMM_WORLD, &status);
 			if(DEBUG_LOG)
 				printf("RANK %d: ROUTINE SUM: %f, EXPECTED SUM %f\n ", rank, global_sum_recv, sum);
@@ -147,7 +148,8 @@ int main(int argc, char** argv) {
                 subcom_rand_nums = create_rand_nums(num_elements_per_proc);
 
                 float subcom_local_sum = 0;
-                for (int i = 0; i < num_elements_per_proc; i++) {
+                int i;
+                for ( i = 0; i < num_elements_per_proc; i++) {
                         subcom_local_sum += subcom_rand_nums[i];
                 }
 
@@ -161,7 +163,8 @@ int main(int argc, char** argv) {
                 if(new_id == 0 ){
                         MPI_Status subcom_status;
                         float subcom_cal_global_sum=0;
-                        for(int rank=1; rank< new_world_size; rank++){
+                        int rank;
+                        for( rank=1; rank< new_world_size; rank++){
                                 float subcom_recv_num;
                                 
                                 MPI_Recv (&subcom_recv_num, 1, MPI_FLOAT, rank, 1, New_Comm, &subcom_status);
@@ -169,8 +172,8 @@ int main(int argc, char** argv) {
                         }
 
                         subcom_cal_global_sum = subcom_cal_global_sum + subcom_local_sum;
-
-                        for(int rank=1; rank< new_world_size; rank++){
+                        
+                        for( rank=1; rank< new_world_size; rank++){
                                 float subcom_recv_num;
                                 
                                 MPI_Recv (&subcom_recv_num, 1, MPI_FLOAT, rank, 2, New_Comm, &subcom_status);
