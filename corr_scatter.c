@@ -80,9 +80,11 @@ int main(int argc, char** argv) {
     		bool passed = false;
 
 		//Calculate portion of random number should process X receive. Calculate that portion sum to check
-    		for(int i=1; i< world_size; i++){
+		int i;
+    		for(i=1; i< world_size; i++){
         		temp_sum = 0;
-			for(int j= i*1000; j < ((i+1)*1000) ; j++){
+			int j;
+			for(j= i*1000; j < ((i+1)*1000) ; j++){
 	  			temp_sum = temp_sum + rand_nums[j]; 
 			}
 	
@@ -147,9 +149,11 @@ int main(int argc, char** argv) {
             		MPI_Status status;
             		int passed = 1;
 
-            		for(int i=1; i< new_world_size; i++){
+			int i;
+            		for(i=1; i< new_world_size; i++){
                 		temp_sum = 0;
-                		for(int j= i*1000; j < ((i+1)*1000) ; j++){
+				int j;
+                		for(j= i*1000; j < ((i+1)*1000) ; j++){
                     			temp_sum = temp_sum + subcomm_rand_nums[j]; 
                 		}
                 		float temp_avg = temp_sum/1000;

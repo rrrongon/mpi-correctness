@@ -40,8 +40,10 @@ int main(int argc, char* argv[])
  * */
 	int * input_int = malloc(sizeof(int) * size * size);
 	int index=0;
-	for (int i=0; i< size; i++){
-		for (int j=0; j< size; j++){
+	int i;
+	for (i=0; i< size; i++){
+		int j;
+		for (j=0; j< size; j++){
 			input_int[index] = i * size * 100 + j*100 ;
 	    		index++;
 		}
@@ -52,14 +54,15 @@ int main(int argc, char* argv[])
  *	i.e process 1 input is 400,500,600,700
  * */
     	int * my_input = malloc(sizeof(int) * size);
-    	for(int i = 0; i < size; i++){
+    	for(i = 0; i < size; i++){
         	my_input[i] = my_rank * size * 100 + i * 100;
     	}
 	
 
 	if (DEBUG_LOG){
 		printf("INFO: RANK %d input: ", my_rank);
-                for (int i=0; i< size; i++){
+		int i;
+                for (i=0; i< size; i++){
                         printf(" %d,", my_input[i]);
                 }
 		printf("\n");
@@ -80,7 +83,7 @@ int main(int argc, char* argv[])
  *	Check values sent by routine alltoall is as expected for each process
  *	extract expected value from reference array and compare with what received
  * */
-    	for (int i =0; i < size ; i++){
+    	for (i =0; i < size ; i++){
 		int my_buf_val = buffer_recv[i];
 		int global_val_pos = i *  size + my_rank ;
 		int global_val = input_int[global_val_pos];
@@ -116,7 +119,8 @@ int main(int argc, char* argv[])
  *		Check if processes received expected value.
  * */
 		if(passed){
-	    		for(int rank=1; rank < size; rank++){
+			int rank;
+	    		for(rank=1; rank < size; rank++){
 	    			MPI_Recv(&pass_val_recv, 1, MPI_INT, rank, 0, MPI_COMM_WORLD, &status);
 				if(!pass_val_recv){
 		    			global_decision = global_decision && pass_val_recv;
@@ -139,7 +143,8 @@ int main(int argc, char* argv[])
 			/*
  *			Already know test fail. However, need to catch recv routine sent by other processes
  * */
-			for(int rank=1; rank < size; rank++){
+			int rank;
+			for(rank=1; rank < size; rank++){
                                 MPI_Recv(&pass_val_recv, 1, MPI_INT, rank, 0, MPI_COMM_WORLD, &status);
                         }               
 	    		printf(RED "TEST: FAIL\n" RESET);
@@ -171,21 +176,24 @@ int main(int argc, char* argv[])
 		/*sub-comm even,odd*/
 		int * sub_input_int = malloc(sizeof(int) * new_world_size * new_world_size);
         	int sub_index=0;
-        	for (int i=0; i< new_world_size; i++){
-                	for (int j=0; j< new_world_size; j++){
+		int i;
+        	for (i=0; i< new_world_size; i++){
+			int j;
+                	for (j=0; j< new_world_size; j++){
                         	sub_input_int[sub_index] = i * new_world_size * 100 + j*100 ;
                         	sub_index++;
                 	}
         	}
 
 		int * my_sub_input = malloc(sizeof(int) * new_world_size);
-        	for(int i = 0; i < new_world_size; i++){
+        	for(i = 0; i < new_world_size; i++){
                 	my_sub_input[i] = new_id * new_world_size * 100 + i * 100;
         	}
 
         	if (DEBUG_LOG){
 			printf("SUBCOM RANK %d, NEW RANK %d. input: ", my_rank, new_id);
-                	for (int i=0; i< new_world_size; i++){
+			int i;
+                	for (i=0; i< new_world_size; i++){
                         	printf(" %d ", my_sub_input[i]);
                 	}
 			printf("\n");
@@ -203,7 +211,7 @@ int main(int argc, char* argv[])
  *
  * 		*/
 
-		for (int i =0; i < new_world_size ; i++){
+		for (i =0; i < new_world_size ; i++){
                 	int my_sub_buf_val = sub_buffer_recv[i];
                 	int global_sub_val_pos = i *  new_world_size + new_id ;
                 	int global_sub_val = sub_input_int[global_sub_val_pos];
@@ -231,7 +239,8 @@ int main(int argc, char* argv[])
                 	MPI_Status status;
                 	bool recv_sub_val = true;
                 	if(passed){
-                        	for(int rank=1; rank < new_world_size; rank++){
+				int rank;
+                        	for(rank=1; rank < new_world_size; rank++){
                                 	MPI_Recv(&recv_sub_val, 1, MPI_INT, rank, 0, New_Comm, &status);
                                 	if(!recv_sub_val){
                                         	sub_global_decision = sub_global_decision && recv_sub_val;

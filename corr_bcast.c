@@ -41,7 +41,8 @@ int main(int argc, char* argv[]){
 		/*Ask from all process what they received via broadcast routine
  *		Check if received value is equal to what was sent by root
  * 		*/
-		for(int i=1;i< size; i++){
+		int i;
+		for(i=1;i< size; i++){
 	    		MPI_Recv(&min_val_recv, data_count, MPI_INT, i,1, MPI_COMM_WORLD, &status);
 	    		if(min_val_recv == min_int){
 				passed = passed && true;
@@ -72,7 +73,8 @@ int main(int argc, char* argv[]){
     	//Array test
 	float * test_array = (float *) malloc( sizeof(float) * 5);
         if(my_rank==0){
-		for(int i=0;i<5;i++)
+		int i;
+		for(i=0;i<5;i++)
 			test_array[i] = i * 100;
 	} 
 
@@ -84,10 +86,11 @@ int main(int argc, char* argv[]){
         	float * test_array_rec = (float *) malloc( sizeof(float) * 5);
 
         	bool passed = true;
-        
-		for(int i=1;i< size; i++){
+        	int i;
+		for(i=1;i< size; i++){
             		MPI_Recv(test_array_rec, data_count, MPI_FLOAT, i,1, MPI_COMM_WORLD, &status);
-	    		for(int j=0; j< 5; j++){
+			int j;
+	    		for(j=0; j< 5; j++){
 				if(test_array_rec[j]==test_array[j])
 		    			passed = passed && true;
 				else{
@@ -127,9 +130,11 @@ int main(int argc, char* argv[]){
         	char * test_string_rec = (char *)malloc(sizeof(char) * 1000);
 
         	bool passed = true;
-        	for(int i=1;i< size; i++){
+		int i;
+        	for(i=1;i< size; i++){
             		MPI_Recv(test_string_rec, 1000, MPI_CHAR, i,1, MPI_COMM_WORLD, &status);
-            		for(int j=0; j< data_count; j++){
+			int j;
+            		for(j=0; j< data_count; j++){
                 		if(test_string_rec[j]==test_string[j])
                     			passed = passed && true;
                 		else{
@@ -185,8 +190,8 @@ int main(int argc, char* argv[]){
                         int subcomm_min_val_recv;
             
                         int subcomm_passed = 1;
-
-                        for(int i=1;i< new_world_size; i++){
+			int i;
+                        for(i=1;i< new_world_size; i++){
                                 MPI_Recv(&subcomm_min_val_recv, data_count, MPI_INT, i,1, New_Comm, &status);
                                 if(subcomm_min_val_recv == subcomm_min_int){
                                         subcomm_passed = subcomm_passed && 1;
@@ -232,9 +237,11 @@ int main(int argc, char* argv[]){
 
 		/*Generate input data in root to broadcast*/
                 float * subcomm_test_array = (float *)malloc(sizeof(float) * 5);;
-                if(new_id==0)
-			for(int i=0;i<5;i++)
+                if(new_id==0){
+			int i;
+			for(i=0;i<5;i++)
                         	subcomm_test_array[i] = i*100; 
+		}
                 data_count = 5;
                 MPI_Bcast(subcomm_test_array, data_count, MPI_FLOAT, 0, New_Comm);
 
@@ -243,13 +250,14 @@ int main(int argc, char* argv[]){
                         float * subcomm_test_array_rec =  (float *)malloc(sizeof(float) * 5);;
 
                         int subcomm_passed = 1;
-                    
-                        for(int i=1;i< new_world_size; i++){
+                    	int i;
+                        for(i=1;i< new_world_size; i++){
 				int local_pass = 1;
 				int data_cnt = 5;
 				int tag = 1;
                                 MPI_Recv(subcomm_test_array_rec, data_cnt, MPI_FLOAT, i, tag, New_Comm, &status);
-                                for(int j=0; j< 5; j++){
+				int j;
+                                for(j=0; j< 5; j++){
                                         if(subcomm_test_array_rec[j]==subcomm_test_array[j]){
                                                 subcomm_passed = subcomm_passed && 1;
 						local_pass = local_pass && 1;
@@ -309,10 +317,12 @@ int main(int argc, char* argv[]){
                         char * subcomm_test_string_rec =  (char *)malloc(sizeof(char) * 1000);
 
                         int subcomm_passed = 1;
-                        for(int i=1;i< new_world_size; i++){
+			int i;
+                        for(i=1;i< new_world_size; i++){
 				int local_pass = 1;
                                 MPI_Recv(subcomm_test_string_rec, 1000, MPI_CHAR, i,1, New_Comm, &status);
-                                for(int j=0; j< 1000; j++){
+				int j;
+                                for(j=0; j< 1000; j++){
                                     if(subcomm_test_string_rec[j]==subcomm_test_string[j]){
                                             subcomm_passed = subcomm_passed && 1;
 						local_pass = local_pass && 1;

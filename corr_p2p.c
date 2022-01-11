@@ -42,7 +42,8 @@ int main(int argc, char** argv){
 		MPI_Status status;
 		int tag;
 		int global_dec = 1;
-        	for (int i=1;i< world_size; i++){
+		int i;
+        	for (i=1;i< world_size; i++){
 			tag = 3;
 	    		dest_rank = i;
 			int local_dec = 1;
@@ -70,7 +71,7 @@ int main(int argc, char** argv){
 
 		double rec_array[5];
 		int arr_dec = 1;
-		for (int i=1; i< world_size; i++){
+		for (i=1; i< world_size; i++){
 	    		dest_rank=i;
             		MPI_Send(&test_array, 5, MPI_DOUBLE, dest_rank, 1, MPI_COMM_WORLD); 
 
@@ -79,7 +80,8 @@ int main(int argc, char** argv){
 			MPI_Recv ( &rec_array, data_cnt, MPI_DOUBLE, i, tag, MPI_COMM_WORLD, &status);
 
 			int local_dec = 1;
-			for(int j=0; j< 5; j++){
+			int j;
+			for(j=0; j< 5; j++){
 				if(test_array[j]!= rec_array[j]){
 					local_dec = 0; 
 				}
@@ -99,10 +101,10 @@ int main(int argc, char** argv){
 			printf(RED "ARRAY TEST: FAIL\n"RESET);
        		}else{
 			if(DEBUG_LOG)
-				printf(RED"ARRAY TEST: PASS\n"RESET);
+				printf("ARRAY TEST: PASS\n");
 		}
 
-        	for (int i=1; i< world_size; i++){
+        	for (i=1; i< world_size; i++){
             		dest_rank=i;
             		MPI_Send(&test_string, 1000, MPI_CHAR, dest_rank, 2, MPI_COMM_WORLD); 
 
@@ -110,7 +112,8 @@ int main(int argc, char** argv){
 			MPI_Recv ( &rec_string, 1000, MPI_CHAR, i, tag, MPI_COMM_WORLD, &status);
 
                         int local_dec = 1;
-                        for(int j=0; j< 5; j++){
+			int j;
+                        for(j=0; j< 5; j++){
                                 if(test_string[j]!= rec_string[j]){
                                         local_dec = 0;
                                 }

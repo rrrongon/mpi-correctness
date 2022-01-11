@@ -1,5 +1,4 @@
-MPICC=/home/sadeghil/Installed_Tools/CryptMPI/bin/mpicc
-
+MPICC := $(shell which mpicc)
 all: allgather allreduce alltoall bcast reduce scatter p2p
 
 allgather: 
