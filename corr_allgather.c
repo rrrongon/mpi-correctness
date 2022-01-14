@@ -61,23 +61,23 @@ int main(int argc, char** argv) {
 
         int sizes[6] = {1,4,64,128,256,512};
         int size_counter;
-        for (size_counter=0; size_counter<6; size_counter++){
-       
-                int num_elements_per_proc = sizes[size_counter] * 1000;
-                srand(time(NULL));
+        
+        srand(time(NULL));
 
-                MPI_Init(NULL, NULL);
+        MPI_Init(NULL, NULL);
 
-                int my_rank;
-                MPI_Comm_rank(MPI_COMM_WORLD, &my_rank);
-                int world_size;
-                MPI_Comm_size(MPI_COMM_WORLD, &world_size);
+        int my_rank;
+        MPI_Comm_rank(MPI_COMM_WORLD, &my_rank);
+        int world_size;
+        MPI_Comm_size(MPI_COMM_WORLD, &world_size);
 
                 /*
         *       Root generates input data to distribute task among all process
         *       sub_rand_nums to accept sub-task input from root
         *       */
-
+        for (size_counter=0; size_counter<6; size_counter++){
+       
+                int num_elements_per_proc = sizes[size_counter] * 1000;
                 float *rand_nums = NULL;
                 if (my_rank == 0) {
                         rand_nums = create_rand_nums(num_elements_per_proc * world_size);
