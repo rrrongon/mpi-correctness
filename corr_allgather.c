@@ -63,7 +63,7 @@ int main(int argc, char** argv) {
         int size_counter;
         for (size_counter=0; size_counter<6; size_counter++){
        
-                int num_elements_per_proc = size_counter * 1000;
+                int num_elements_per_proc = sizes[size_counter] * 1000;
                 srand(time(NULL));
 
                 MPI_Init(NULL, NULL);
@@ -160,9 +160,9 @@ int main(int argc, char** argv) {
                         free(rand_nums);
 
                         if(global_pass)
-                                printf("TEST %d*1024 byte: PASS\n", size_counter);
+                                printf("TEST %d*1024 byte: PASS\n", sizes[size_counter]);
                         else
-                                printf("TEST %d*1024 byte: FAIL\n", size_counter);
+                                printf("TEST %d*1024 byte: FAIL\n", sizes[size_counter]);
 
                 }else{
                         /*Send calculated value received by routine to rank 0 to check*/
@@ -190,7 +190,7 @@ int main(int argc, char** argv) {
                         if (new_id == 0 && my_rank == 0) {
                                 rand_nums = create_rand_nums(num_elements_per_proc * new_world_size);
                         }else if (new_id == 0 && my_rank != 0){
-                                rand_nums = create_rand_nums(size_counter * num_elements_per_proc * new_world_size);
+                                rand_nums = create_rand_nums(num_elements_per_proc * new_world_size);
                         }
 
                         float *sub_rand_nums = (float *)malloc(sizeof(float) * num_elements_per_proc);
@@ -229,10 +229,10 @@ int main(int argc, char** argv) {
                                 if (diff >0.001){
                                         subcomm_pass = 0;
                                         if(DEBUG_LOG)
-                                                printf(RED"SUBCOM NEWID %d: FAIL. SIZE %d*1024. Routine Calculation=%f, EXPECTED=%f\n"RESET,new_id, size_counter, avg, all_value_avg );
+                                                printf(RED"SUBCOM NEWID %d: FAIL. SIZE %d*1024. Routine Calculation=%f, EXPECTED=%f\n"RESET,new_id, sizes[size_counter], avg, all_value_avg );
                                 }else{
                                         if(DEBUG_LOG)
-                                                printf("SUBCOM NEWID %d: OK. SIZE %d*1024. Routine Calculation=%f, EXPECTED=%f\n",new_id, size_counter, avg, all_value_avg );
+                                                printf("SUBCOM NEWID %d: OK. SIZE %d*1024. Routine Calculation=%f, EXPECTED=%f\n",new_id, sizes[size_counter], avg, all_value_avg );
                                 }
                                 int rank;
                                 for(rank=1; rank < new_world_size; rank++){
@@ -249,7 +249,7 @@ int main(int argc, char** argv) {
                                         subcomm_pass = subcomm_pass && local_pass;
 
                                         if(DEBUG_LOG)
-                                                printf("NEWID %d: SIZE: %d*1024. Routine Calculation: %f, EXPECTED: %f. LOCAL STATUS: %d\n", rank, size_counter, avg_recv, all_value_avg, local_pass);
+                                                printf("NEWID %d: SIZE: %d*1024. Routine Calculation: %f, EXPECTED: %f. LOCAL STATUS: %d\n", rank, sizes[size_counter], avg_recv, all_value_avg, local_pass);
                                 }
 
                                 free(rand_nums);
@@ -271,9 +271,9 @@ int main(int argc, char** argv) {
                                 MPI_Recv(&recv_subcom_pass, 1, MPI_INT, 1, 0, MPI_COMM_WORLD, &status);
 
                                 if(recv_subcom_pass && subcomm_pass )
-                                        printf("SUBCOMM TEST: PASS. SIZE: %d*1024\n", size_counter);
+                                        printf("SUBCOMM TEST: PASS. SIZE: %d*1024\n", sizes[size_counter]);
                                 else
-                                        printf(RED"SUBCOMM TEST: FAIL. SIZE: %d*1024\n"RESET, size_counter);
+                                        printf(RED"SUBCOMM TEST: FAIL. SIZE: %d*1024\n"RESET, sizes[size_counter]);
 
                         }else if(my_rank != 0 && new_id == 0) {
                                 MPI_Send(&subcomm_pass, 1, MPI_INT, 0, 0, MPI_COMM_WORLD);
