@@ -2,6 +2,7 @@
 #define BLACK   "\033[30m"      /* Black */
 #define RED     "\033[31m"      /* Red */
 #define GREEN   "\033[32m" 
+#define ERROR_MARGIN 0.5
 #include <stdio.h>
 #include <stdlib.h>
 #include <mpi.h>
@@ -73,7 +74,7 @@ int main(int argc, char** argv) {
                 }
                 
                 if(DEBUG_LOG)
-                        printf("Part of data in RANK %d SUM:%f, SIZE:%d*1024\n", my_rank, sum, sizes[size_counter]);
+                        printf("Part of data in RANK %d SUM:%f, SIZE:%d*1024\n", my_rank, local_sum, sizes[size_counter]);
                 //Call Routine and Exchange subtask to allreduce among all processes
                 float global_sum;
                 MPI_Allreduce(&local_sum, &global_sum, 1, MPI_FLOAT, MPI_SUM, MPI_COMM_WORLD);
@@ -87,7 +88,8 @@ int main(int argc, char** argv) {
                         /*Receives sub-task input data from all process to calculate Final sum for reference*/
                         int tag = 3;
                         float sum=0;
-                        int cnt = num_elements_per_proc, rank;
+                        int cnt = num_elements_per_proc;
+			int rank;
                         for(rank=1; rank < world_size; rank++){
                                 float *input_recv_buf = (float *)malloc(sizeof(float) * num_elements_per_proc);
                                 MPI_Recv(input_recv_buf, cnt, MPI_FLOAT, rank, tag , MPI_COMM_WORLD, &status);
@@ -114,17 +116,17 @@ int main(int argc, char** argv) {
                         for ( rank=1; rank < world_size; rank++){
                                 MPI_Recv(&global_sum_recv, cnt, MPI_FLOAT, rank, tag, MPI_COMM_WORLD, &status);
                                 if(DEBUG_LOG)
-                                        printf("RANK %d: ROUTINE SUM: %f, EXPECTED SUM %f\n, SIZE:%d*1024\n", rank, global_sum_recv, sum, sizes[size_counter]);
+                                        printf("RANK %d: ROUTINE SUM: %f, EXPECTED SUM %f SIZE:%d*1024\n", rank, global_sum_recv, sum, sizes[size_counter]);
 
                                 float diff = global_sum_recv - sum;
                                 if(diff < 0)
                                         diff = diff * (-1);
-                                if(diff < 0.01){
+                                if(diff < ERROR_MARGIN){
                                         passed = passed && true;
                                 }else{
                                         passed = passed && false;
                                         if(DEBUG_LOG)
-                                                printf(RED"TEST: FAIL. RANK %d, SIZE:%d*1024\n"RESET, rank, sizes[size_counter]);
+                                                printf(RED"TEST: FAIL. RANK %d, ROUTINE SUM: %f, EXPECTED SUM %f, SIZE:%d*1024\n"RESET, rank, global_sum_recv, sum, sizes[size_counter]);
                                 }
                         }
                         /*Check for rank 0 too*/
@@ -132,7 +134,7 @@ int main(int argc, char** argv) {
                         if(diff < 0)
                                 diff = diff * (-1);
 
-                        if(passed && (diff < 0.01))
+                        if(passed && (diff < ERROR_MARGIN))
                                 printf("TEST: PASS, SIZE:%d*1024\n", sizes[size_counter]);
                         else
                                 printf(RED"TEST: FAIL, SIZE:%d*1024\n"RESET, sizes[size_counter]);
@@ -198,7 +200,7 @@ int main(int argc, char** argv) {
                                         if(diff <0)
                                         diff = diff * (-1);
 
-                                        if(diff>0.001){
+                                        if(diff>ERROR_MARGIN){
                                                 subcom_global_pass = subcom_global_pass && 0;
                                                 if(DEBUG_LOG)
                                                         printf(RED"SUBCOMM TEST: FAIL. NEWID:%d EXPECTED: %f, Routine: %f, SIZE: %d*1024\n"RESET, rank, subcom_cal_global_sum, subcom_recv_num, sizes[size_counter]);
