@@ -150,9 +150,9 @@ int main(int argc, char** argv) {
 
                                 if(DEBUG_LOG){
                                         if(local_pass)
-                                                printf("RANK %d: calculated: %f, reference: %f\n", rank, avg_recv, all_value_avg);
+                                                printf("RANK %d: allgather: %f, Expected: %f\n", rank, avg_recv, all_value_avg);
                                         else
-                                                printf(RED"RANK: %d FAIL. Calculated: %f, reference: %f  "RESET, rank, avg_recv, all_value_avg);
+                                                printf(RED"RANK: %d FAIL. Allgather: %f, Expected: %f\n"RESET, rank, avg_recv, all_value_avg);
                                 }                               
 
                         }
