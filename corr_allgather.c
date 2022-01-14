@@ -77,7 +77,7 @@ int main(int argc, char** argv) {
         *       */
         for (size_counter=0; size_counter<6; size_counter++){
        
-                int num_elements_per_proc = sizes[size_counter] * 1000;
+                int num_elements_per_proc = sizes[size_counter] * 1024;
                 float *rand_nums = NULL;
                 if (my_rank == 0) {
                         rand_nums = create_rand_nums(num_elements_per_proc * world_size);
