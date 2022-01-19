@@ -9,6 +9,8 @@
 #include <time.h>
 #include <stdbool.h>
 
+
+#define SIZES 10
 /*
  *
  * Allgather: Root process generates data to process. Scatters to processes
@@ -50,16 +52,8 @@ int main(int argc, char** argv) {
         else
                 DEBUG_LOG = atoi(argv[1]);
 
-        /*
-        4KB = 1024 float
-        16KB = 4 * 1024
-        256KB = 64 *  1024
-        512KB = 128 * 1024
-        1MB = 256 * 1024
-        4 MB = 512 * 1024
-        */
 
-        int sizes[6] = {1,4,64,128,256,512};
+        int sizes[SIZES] = {1, 2, 4, 8, 16, 32, 64, 128, 256, 512};
         int size_counter;
         
         srand(time(NULL));
@@ -75,7 +69,7 @@ int main(int argc, char** argv) {
         *       Root generates input data to distribute task among all process
         *       sub_rand_nums to accept sub-task input from root
         *       */
-        for (size_counter=0; size_counter<6; size_counter++){
+        for (size_counter=0; size_counter<SIZES; size_counter++){
        
                 int num_elements_per_proc = sizes[size_counter] * 1024;
                 float *rand_nums = NULL;
