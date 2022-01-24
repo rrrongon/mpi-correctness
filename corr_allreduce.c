@@ -26,8 +26,11 @@
 float *create_rand_nums(int num_elements) {
         float *rand_nums = (float *)malloc(sizeof(float) * num_elements);
         int i;
+	float temp;
         for (i = 0; i < num_elements; i++) {
-                rand_nums[i] = (rand() / (float)RAND_MAX);
+		temp = (rand() / (float)RAND_MAX);
+		temp = round(temp);
+                rand_nums[i] = temp;
         }
         return rand_nums;
 }

@@ -1,11 +1,11 @@
-MPICC := /home/sadeghil/Installed_Tools/SMVAPICH/bin/mpicc
+MPICC := $(shell which mpicc)
 all: allgather allreduce alltoall bcast reduce scatter p2p
 
 allgather: 
 	$(MPICC) -o allgather_correctness.exe corr_allgather.c
 
 allreduce: corr_allreduce.c
-	$(MPICC) -o allreduce_correctness.exe corr_allreduce.c
+	$(MPICC) -o allreduce_correctness.exe corr_allreduce.c -lm
 
 alltoall: corr_alltoall.c
 	$(MPICC) -o alltoall_correctness.exe corr_alltoall.c
