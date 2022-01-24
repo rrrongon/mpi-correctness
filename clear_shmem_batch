@@ -1,0 +1,34 @@
+#!/bin/bash
+
+ipcrm -a
+exit
+ssh ns02
+
+ipcrm -a
+exit
+ssh ns03
+
+ipcrm -a
+exit
+ssh ns04
+
+ipcrm -a
+exit
+ssh ns05
+
+ipcrm -a
+exit
+ssh ns06
+
+ipcrm -a
+exit
+ssh ns09
+
+ipcrm -a
+exit
+ssh ns10
+
+ipcrm -a
+exit
+ssh ns01
+

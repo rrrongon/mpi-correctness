@@ -13,13 +13,12 @@
 #define SIZES 10
 
 /*
- *  *  *  *  *
- *   *   *  Allgather: Root process generates data to process. Scatters to processes
- *    *    *  Processes again call allgather routine to collect data in all processes
- *     *     *   Each process sends collected data to root
- *      *      *  Root checks if processes got correct data from routine
- *       *       *       *      */
-
+ 
+  Allgather: Root process generates data to process. Scatters to processes
+  Processes again call allgather routine to collect data in all processes
+  Each process sends collected data to root
+  Root checks if processes got correct data from routine
+ */
 
 /*Generating random numbers for input*/
 float *create_rand_nums(int num_elements) {
@@ -57,9 +56,9 @@ int main(int argc, char** argv) {
         MPI_Comm_size(MPI_COMM_WORLD, &world_size);
 
         /*
- *         Root generates input data to distribute task among all process
- *          	sub_rand_nums to accept sub-task input from root
- *          	       */
+        Root generates input data to distribute task among all process
+ 	sub_rand_nums to accept sub-task input from root
+       */
         for (size_counter=0; size_counter<SIZES; size_counter++){
        
                 int num_elements_per_proc = sizes[size_counter] * 1024;
@@ -71,15 +70,12 @@ int main(int argc, char** argv) {
                 float *sub_rand_nums = (float *)malloc(sizeof(float) * num_elements_per_proc);
 
                 /*
- *  *                  Each process call scatter routine to accept sub-input from root
- *   *              */
+                Each process call scatter routine to accept sub-input from root
+               */
 
                 MPI_Scatter(rand_nums, num_elements_per_proc, MPI_FLOAT, sub_rand_nums, num_elements_per_proc, MPI_FLOAT, 0, MPI_COMM_WORLD);
 
 
-                /*Call Allgather routine from each process
- *  *                  Need memory to receive avg from all other processes
- *   *                                   */      
                 float *recv_buf = (float *)malloc(sizeof(float) * num_elements_per_proc * world_size);
                 MPI_Allgather(sub_rand_nums, num_elements_per_proc, MPI_FLOAT, recv_buf, num_elements_per_proc, MPI_FLOAT, MPI_COMM_WORLD);
 
@@ -95,7 +91,7 @@ int main(int argc, char** argv) {
                         for(rank=1; rank < world_size; rank++){
 				local_pass = 1;
 				/*Collect allgather data from all processes to check what they received.
- *  * 				And check element by element*/
+  				And check element by element*/
                                 MPI_Recv(ranks_recv_buf, data_cnt, MPI_FLOAT, rank, 0, MPI_COMM_WORLD, &status);
 
                                 for(pos=0; pos< data_cnt; pos++){
@@ -176,8 +172,8 @@ int main(int argc, char** argv) {
                         MPI_Comm_size(New_Comm, &new_world_size);
 
                         /*
- *                         each subcomm world might have different number of processes.
- *                                                */
+                        each subcomm world might have different number of processes.
+                       */
                         float *rand_nums = NULL;
                         if (new_id == 0) {
                                 rand_nums = create_rand_nums(num_elements_per_proc * new_world_size);
