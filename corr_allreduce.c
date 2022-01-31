@@ -9,6 +9,8 @@
 #include <math.h>
 #include <stdbool.h>
 
+#define SIZES 10
+
 /*
  *    Allreduce: Each process has subtask. They compute.
  *    Each process calls allreduce routine mentioning an operation
@@ -60,16 +62,16 @@ int main(int argc, char** argv) {
         4 MB = 512 * 1024
         */
 
-        int sizes[6] = {1,4,64,128,256,512};
+        int sizes[SIZES] = {1, 2, 4, 8, 16, 32, 64, 128, 256, 512};
         int size_counter;
-        for (size_counter=0; size_counter<6; size_counter++){
+        for (size_counter=0; size_counter<SIZES; size_counter++){
                 int num_elements_per_proc = sizes[size_counter] * 1024;
                 /*Generate input for each process*/
-                srand(time(NULL)*my_rank); // Seed the random number generator of processes uniquely
+                srand(time(NULL)*my_rank); 
                 float *rand_nums = NULL;
                 rand_nums = create_rand_nums(num_elements_per_proc);
 
-                //completes subtask
+                /*completes subtask*/
                 float local_sum = 0;
                 int i;
                 for (i = 0; i < num_elements_per_proc; i++) {
@@ -78,9 +80,9 @@ int main(int argc, char** argv) {
                 
                 if(DEBUG_LOG)
                         printf("Part of data in RANK %d SUM:%f, SIZE:%d*1024\n", my_rank, local_sum, sizes[size_counter]);
-                //Call Routine and Exchange subtask to allreduce among all processes
+                /*Call Routine and Exchange subtask to allreduce among all processes*/
                 float global_sum;
-                MPI_Allreduce(&local_sum, &global_sum, 1, MPI_FLOAT, MPI_SUM, MPI_COMM_WORLD);
+                MPI_Allreduce(rand_nums, &global_sum, num_elements_per_proc, MPI_FLOAT, MPI_SUM, MPI_COMM_WORLD);
 
                 if (my_rank==0){
                         float global_sum_recv = 0;
@@ -178,7 +180,7 @@ int main(int argc, char** argv) {
 
                         int subcom_global_pass = 1;
 
-                        MPI_Allreduce(&subcom_local_sum, &subcom_global_sum, 1, MPI_FLOAT, MPI_SUM, New_Comm);
+                        MPI_Allreduce(subcom_rand_nums, &subcom_global_sum, num_elements_per_proc, MPI_FLOAT, MPI_SUM, New_Comm);
 
                         if(new_id == 0 ){
                                 MPI_Status subcom_status;
