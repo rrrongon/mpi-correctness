@@ -9,7 +9,8 @@
 #include <math.h>
 #include <stdbool.h>
 
-#define SIZES 10
+#define SIZES 2
+#define RAND 10
 
 /*
  *    Allreduce: Each process has subtask. They compute.
@@ -30,7 +31,7 @@ float *create_rand_nums(int num_elements) {
         int i;
 	float temp;
         for (i = 0; i < num_elements; i++) {
-		temp = (rand() / (float)RAND_MAX);
+		temp = (rand() % RAND);
 		temp = round(temp);
                 rand_nums[i] = temp;
         }
@@ -65,51 +66,68 @@ int main(int argc, char** argv) {
         int sizes[SIZES] = {1, 2, 4, 8, 16, 32, 64, 128, 256, 512};
         int size_counter;
         for (size_counter=0; size_counter<SIZES; size_counter++){
-                int num_elements_per_proc = sizes[size_counter] * 1024;
+
+                //int num_elements_per_proc = sizes[size_counter] * 1024;
                 /*Generate input for each process*/
+		int num_elements_per_proc = 3;
                 srand(time(NULL)*my_rank); 
                 float *rand_nums = NULL;
                 rand_nums = create_rand_nums(num_elements_per_proc);
 
-                /*completes subtask*/
-                float local_sum = 0;
-                int i;
-                for (i = 0; i < num_elements_per_proc; i++) {
-                        local_sum += rand_nums[i];
-                }
-                
-                if(DEBUG_LOG)
-                        printf("Part of data in RANK %d SUM:%f, SIZE:%d*1024\n", my_rank, local_sum, sizes[size_counter]);
+                if(DEBUG_LOG){
+			int i;
+			for(i=0;i<num_elements_per_proc;i++){
+                        	printf("Part of data in RANK %d Generated value[%d]:%f, SIZE:%d*1024\n", my_rank, i, rand_nums[i], sizes[size_counter]);
+			}
+		}
                 /*Call Routine and Exchange subtask to allreduce among all processes*/
-                float global_sum;
-                MPI_Allreduce(rand_nums, &global_sum, num_elements_per_proc, MPI_FLOAT, MPI_SUM, MPI_COMM_WORLD);
+                float * global_sum = (float *)malloc(sizeof(float) * num_elements_per_proc);
+                MPI_Allreduce(rand_nums, global_sum, num_elements_per_proc, MPI_FLOAT, MPI_SUM, MPI_COMM_WORLD);
 
                 if (my_rank==0){
-                        float global_sum_recv = 0;
                         MPI_Status status;
                         
-                        if (DEBUG_LOG)
-                                printf("AllReduce GLOBAL SUM:%f for SIZE:%d*1024\n", global_sum, sizes[size_counter]);
+                        if (DEBUG_LOG){
+				int i;
+				float s = 0;
+				for(i=0;i<num_elements_per_proc;i++){
+                                	printf("AllReduce GLOBAL SUM at POSITION %d: %f for SIZE:%d*1024\n", i, global_sum[i], sizes[size_counter]);
+				}
+			}
                         /*Receives sub-task input data from all process to calculate Final sum for reference*/
                         int tag = 3;
                         float sum=0;
                         int cnt = num_elements_per_proc;
 			int rank;
+			
+			float * calc_global_sum = (float *)malloc(sizeof(float) * num_elements_per_proc);
+			int i;
+			for(i=0;i<num_elements_per_proc;i++){
+				calc_global_sum[i]= rand_nums[i];
+			}
+
                         for(rank=1; rank < world_size; rank++){
                                 float *input_recv_buf = (float *)malloc(sizeof(float) * num_elements_per_proc);
                                 MPI_Recv(input_recv_buf, cnt, MPI_FLOAT, rank, tag , MPI_COMM_WORLD, &status);
                                 int j;
-                                for ( j=0;j < cnt;j++)
-                                        sum += input_recv_buf[j];
+                                for ( j=0;j < cnt;j++){
+					float temp_sum = calc_global_sum[j];
+					float temp_val = input_recv_buf[j];
+					float new_sum = temp_sum + temp_val;
+
+					calc_global_sum[j] = new_sum;
+				}
 
                                 if(DEBUG_LOG)
                                         printf("Received input from RANK %d in Root\n", rank);
                         }
-                        // add rank 0's own sum
-                        sum += local_sum;
-                        if(DEBUG_LOG)
-                                printf("CALCULATED SUM:%f for SIZE:%d*1024\n", sum, sizes[size_counter]);
 
+                        if(DEBUG_LOG){
+				int i;
+				for(i=0;i<num_elements_per_proc;i++){
+                                	printf("CALCULATED SUM at POSITION %d: %f for SIZE:%d*1024\n", i, calc_global_sum[i], sizes[size_counter]);
+				}
+			}
                         /*
         * 		Ask Process What they got from allreduce routine
         *		Check routine sum with Expected sum with a 0.01 margin deviation
@@ -117,32 +135,43 @@ int main(int argc, char** argv) {
                         
                         bool passed = true;
                         tag = 1;
-                        cnt = 1;
+                        cnt = num_elements_per_proc;
+			bool local_pass = true;
+			float *global_sum_recv = (float *)malloc(sizeof(float) * num_elements_per_proc);
+
                         for ( rank=1; rank < world_size; rank++){
-                                MPI_Recv(&global_sum_recv, cnt, MPI_FLOAT, rank, tag, MPI_COMM_WORLD, &status);
-                                if(DEBUG_LOG)
-                                        printf("RANK %d: ROUTINE SUM: %f, EXPECTED SUM %f SIZE:%d*1024\n", rank, global_sum_recv, sum, sizes[size_counter]);
-
-                                float diff = global_sum_recv - sum;
-                                if(diff < 0)
-                                        diff = diff * (-1);
-                                if(diff < ERROR_MARGIN){
-                                        passed = passed && true;
-                                }else{
-                                        passed = passed && false;
-                                        if(DEBUG_LOG)
-                                                printf(RED"TEST: FAIL. RANK %d, ROUTINE SUM: %f, EXPECTED SUM %f, SIZE:%d*1024\n"RESET, rank, global_sum_recv, sum, sizes[size_counter]);
-                                }
+				local_pass = true;
+                                MPI_Recv(global_sum_recv, cnt, MPI_FLOAT, rank, tag, MPI_COMM_WORLD, &status);
+                                if(DEBUG_LOG){
+					int i;
+					for(i=0; i< num_elements_per_proc; i++){
+						float calc_sum = calc_global_sum[i];
+						float routine_sum = global_sum_recv[i];
+						if(DEBUG_LOG)
+                                        		printf("RANK %d: at POSITION %d, Received ROUTINE SUM: %f, EXPECTED SUM %f SIZE:%d*1024\n", rank,i, routine_sum, calc_sum, sizes[size_counter]);
+						if(calc_sum != routine_sum){
+							local_pass = false;
+							passed = passed && local_pass;
+						}
+						else{
+							local_pass = true;
+							passed = passed && local_pass;
+						}
+					}
+				}
+				if(local_pass)
+					printf("TEST: PASS. RANK %d\n", rank);
+				else
+					printf(RED"TEST: FAIL. RANK %d\n"RESET, rank);
                         }
-                        /*Check for rank 0 too*/
-                        float diff = global_sum_recv - sum;
-                        if(diff < 0)
-                                diff = diff * (-1);
 
-                        if(passed && (diff < ERROR_MARGIN))
-                                printf("TEST: PASS, SIZE:%d*1024\n", sizes[size_counter]);
-                        else
-                                printf(RED"TEST: FAIL, SIZE:%d*1024\n"RESET, sizes[size_counter]);
+			if (passed)
+				printf("TEST: PASS! SIZE:%d*1024\n", sizes[size_counter]);
+			else
+				printf(RED"TEST: FAIL! SIZE:%d*1024\n"RESET, sizes[size_counter]);
+
+			printf("---------------------\n");
+
                 }else{
                         /*
         *		Send input and Routine sum to rank 0 for checking
@@ -151,9 +180,9 @@ int main(int argc, char** argv) {
                         int tag = 3;
                         MPI_Send(rand_nums, num_elements_per_proc, MPI_FLOAT, dest_rank, tag, MPI_COMM_WORLD);
                         
-                        int cnt=1;
+                        int cnt=num_elements_per_proc;
                         tag = 1;
-                        MPI_Send(&global_sum,cnt , MPI_FLOAT, dest_rank, tag, MPI_COMM_WORLD);
+                        MPI_Send(global_sum, cnt , MPI_FLOAT, dest_rank, tag, MPI_COMM_WORLD);
                 }
 
                 MPI_Comm New_Comm;
