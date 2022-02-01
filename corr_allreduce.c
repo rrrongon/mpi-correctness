@@ -69,7 +69,7 @@ int main(int argc, char** argv) {
 
                 //int num_elements_per_proc = sizes[size_counter] * 1024;
                 /*Generate input for each process*/
-		int num_elements_per_proc = 3;
+		int num_elements_per_proc = sizes[size_counter] * 1024;
                 srand(time(NULL)*my_rank); 
                 float *rand_nums = NULL;
                 rand_nums = create_rand_nums(num_elements_per_proc);
@@ -89,7 +89,6 @@ int main(int argc, char** argv) {
                         
                         if (DEBUG_LOG){
 				int i;
-				float s = 0;
 				for(i=0;i<num_elements_per_proc;i++){
                                 	printf("AllReduce GLOBAL SUM at POSITION %d: %f for SIZE:%d*1024\n", i, global_sum[i], sizes[size_counter]);
 				}
@@ -102,10 +101,15 @@ int main(int argc, char** argv) {
 			
 			float * calc_global_sum = (float *)malloc(sizeof(float) * num_elements_per_proc);
 			int i;
+
+                        /*Initialize with rank 0's generated values*/
 			for(i=0;i<num_elements_per_proc;i++){
 				calc_global_sum[i]= rand_nums[i];
 			}
 
+                        /*GET all input values from process
+                        Add values at each position
+                        Generate final calculated sum*/
                         for(rank=1; rank < world_size; rank++){
                                 float *input_recv_buf = (float *)malloc(sizeof(float) * num_elements_per_proc);
                                 MPI_Recv(input_recv_buf, cnt, MPI_FLOAT, rank, tag , MPI_COMM_WORLD, &status);
@@ -122,16 +126,13 @@ int main(int argc, char** argv) {
                                         printf("Received input from RANK %d in Root\n", rank);
                         }
 
+                        /*Show calculated SUM at each position*/
                         if(DEBUG_LOG){
 				int i;
 				for(i=0;i<num_elements_per_proc;i++){
                                 	printf("CALCULATED SUM at POSITION %d: %f for SIZE:%d*1024\n", i, calc_global_sum[i], sizes[size_counter]);
 				}
 			}
-                        /*
-        * 		Ask Process What they got from allreduce routine
-        *		Check routine sum with Expected sum with a 0.01 margin deviation
-        * 		*/
                         
                         bool passed = true;
                         tag = 1;
@@ -139,30 +140,32 @@ int main(int argc, char** argv) {
 			bool local_pass = true;
 			float *global_sum_recv = (float *)malloc(sizeof(float) * num_elements_per_proc);
 
+                        /*Receive Allreduce sum from each rank
+                        Check each position sum with calculated one*/
                         for ( rank=1; rank < world_size; rank++){
 				local_pass = true;
                                 MPI_Recv(global_sum_recv, cnt, MPI_FLOAT, rank, tag, MPI_COMM_WORLD, &status);
-                                if(DEBUG_LOG){
-					int i;
-					for(i=0; i< num_elements_per_proc; i++){
-						float calc_sum = calc_global_sum[i];
-						float routine_sum = global_sum_recv[i];
-						if(DEBUG_LOG)
-                                        		printf("RANK %d: at POSITION %d, Received ROUTINE SUM: %f, EXPECTED SUM %f SIZE:%d*1024\n", rank,i, routine_sum, calc_sum, sizes[size_counter]);
-						if(calc_sum != routine_sum){
-							local_pass = false;
-							passed = passed && local_pass;
-						}
-						else{
-							local_pass = true;
-							passed = passed && local_pass;
-						}
-					}
-				}
+                                
+                                int i;
+                                for(i=0; i< num_elements_per_proc; i++){
+                                        float calc_sum = calc_global_sum[i];
+                                        float routine_sum = global_sum_recv[i];
+                                        if(DEBUG_LOG)
+                                                printf("RANK %d: at POSITION %d, Received ROUTINE SUM: %f, EXPECTED SUM %f SIZE:%d*1024\n", rank,i, routine_sum, calc_sum, sizes[size_counter]);
+                                        if(calc_sum != routine_sum){
+                                                local_pass = false;
+                                                passed = passed && local_pass;
+                                        }
+                                        else{
+                                                local_pass = true;
+                                                passed = passed && local_pass;
+                                        }
+                                }
+				
 				if(local_pass)
-					printf("TEST: PASS. RANK %d\n", rank);
+					printf("TEST: PASS. RANK %d. SIZE:%d*1024\n", rank, sizes[size_counter]);
 				else
-					printf(RED"TEST: FAIL. RANK %d\n"RESET, rank);
+					printf(RED"TEST: FAIL. RANK %d. SIZE:%d*1024\n"RESET, rank, sizes[size_counter]);
                         }
 
 			if (passed)
@@ -198,49 +201,92 @@ int main(int argc, char** argv) {
                         float *subcom_rand_nums = NULL;
                         subcom_rand_nums = create_rand_nums(num_elements_per_proc);
 
-                        float subcom_local_sum = 0;
-                        int i;
-                        for ( i = 0; i < num_elements_per_proc; i++) {
-                                subcom_local_sum += subcom_rand_nums[i];
-                        }
-
-                        float subcom_global_sum;
+                        float *subcom_global_sum = (float *)malloc(sizeof(float) * num_elements_per_proc);
                         int root = 0;
 
                         int subcom_global_pass = 1;
 
-                        MPI_Allreduce(subcom_rand_nums, &subcom_global_sum, num_elements_per_proc, MPI_FLOAT, MPI_SUM, New_Comm);
+                        MPI_Allreduce(subcom_rand_nums, subcom_global_sum, num_elements_per_proc, MPI_FLOAT, MPI_SUM, New_Comm);
 
                         if(new_id == 0 ){
                                 MPI_Status subcom_status;
-                                float subcom_cal_global_sum=0;
+                                if (DEBUG_LOG){
+				        int i;
+				        for(i=0;i<num_elements_per_proc;i++){
+                                	        printf("SUBCOMM: AllReduce GLOBAL SUM at POSITION %d: %f for SIZE:%d*1024\n", i, global_sum[i], sizes[size_counter]);
+				        }
+			        }
+
+                                /*Initialize with new_id 0's generated values*/
+                                float *subcom_cal_global_sum= (float *)malloc(sizeof(float) * num_elements_per_proc);
+                                int i;
+			        for(i=0;i<num_elements_per_proc;i++){
+				        subcom_cal_global_sum[i]= subcom_rand_nums[i];
+			        }
+
+                                /*GET all input values from process
+                                Add values at each position
+                                Generate final calculated sum*/
+                                
                                 int rank;
                                 for( rank=1; rank< new_world_size; rank++){
-                                        float subcom_recv_num;
+                                        float *subcom_recv_num = (float *)malloc(sizeof(float) * num_elements_per_proc);
+                                        MPI_Recv (subcom_recv_num, num_elements_per_proc, MPI_FLOAT, rank, 1, New_Comm, &subcom_status);
                                         
-                                        MPI_Recv (&subcom_recv_num, 1, MPI_FLOAT, rank, 1, New_Comm, &subcom_status);
-                                        subcom_cal_global_sum = subcom_cal_global_sum +  subcom_recv_num;
+                                        int j;
+                                        for(j=0; j<num_elements_per_proc; j++){
+                                                float temp_sum = subcom_cal_global_sum[j];
+                                                float temp_val = subcom_recv_num[j];
+                                                float new_sum = temp_sum + temp_val;
+
+                                                subcom_cal_global_sum[j] = new_sum;       
+                                        }
+
+                                        if(DEBUG_LOG)
+                                                printf("Received input from SUBCOMM NEWRANK %d in Root\n", rank);
                                 }
 
-                                subcom_cal_global_sum = subcom_cal_global_sum + subcom_local_sum;
+                                /*Show calculated SUM at each position*/
+                                if(DEBUG_LOG){
+				        int i;
+				        for(i=0;i<num_elements_per_proc;i++){
+                                	        printf("SUBCOMM CALCULATED SUM at POSITION %d: %f for SIZE:%d*1024\n", i, subcom_cal_global_sum[i], sizes[size_counter]);
+				        }
+			        }
                                 
+                                bool passed = true;
+                                int tag = 2;
+                                int cnt = num_elements_per_proc;
+			        bool subcomm_local_pass = true;
+			        float *subcomm_global_sum_recv = (float *)malloc(sizeof(float) * num_elements_per_proc);
+
+                                /*Receive Allreduce sum from each rank
+                                Check each position sum with calculated one*/
+
                                 for( rank=1; rank< new_world_size; rank++){
-                                        float subcom_recv_num;
+                                        subcomm_local_pass = true;                                        
+                                        MPI_Recv (subcomm_global_sum_recv, num_elements_per_proc, MPI_FLOAT, rank, tag, New_Comm, &subcom_status);
                                         
-                                        MPI_Recv (&subcom_recv_num, 1, MPI_FLOAT, rank, 2, New_Comm, &subcom_status);
-                                        
-                                        float diff = subcom_cal_global_sum - subcom_recv_num;
-
-                                        if(diff <0)
-                                        diff = diff * (-1);
-
-                                        if(diff>ERROR_MARGIN){
-                                                subcom_global_pass = subcom_global_pass && 0;
+                                        int i;
+                                        for(i=0; i< num_elements_per_proc; i++){
+                                                float calc_sum = subcom_cal_global_sum[i];
+                                                float routine_sum = subcomm_global_sum_recv[i];
                                                 if(DEBUG_LOG)
-                                                        printf(RED"SUBCOMM TEST: FAIL. NEWID:%d EXPECTED: %f, Routine: %f, SIZE: %d*1024\n"RESET, rank, subcom_cal_global_sum, subcom_recv_num, sizes[size_counter]);
-                                        }else{
-                                                subcom_global_pass = subcom_global_pass && 1;
+                                                        printf("SUBCOMM RANK %d: at POSITION %d, Received ROUTINE SUM: %f, EXPECTED SUM %f SIZE:%d*1024\n", rank,i, routine_sum, calc_sum, sizes[size_counter]);
+                                                if(calc_sum != routine_sum){
+                                                        subcomm_local_pass = false;
+                                                        passed = passed && subcomm_local_pass;
+                                                }
+                                                else{
+                                                        subcomm_local_pass = true;
+                                                        passed = passed && subcomm_local_pass;
+                                                }
                                         }
+
+                                        if(subcomm_local_pass)
+                                                printf("TEST: PASS. NEWRANK %d, SIZE:%d*1024\n", rank, sizes[size_counter]);
+                                        else
+                                                printf(RED"TEST: FAIL. RANK %d, SIZE:%d*1024\n"RESET, rank, sizes[size_counter]);
                                 }
 
                                 /*
@@ -250,16 +296,17 @@ int main(int argc, char** argv) {
                                         int subcom_global_pass_recv;
                                         MPI_Recv (&subcom_global_pass_recv, 1, MPI_INT, 1, 3, MPI_COMM_WORLD, &subcom_status);
 
-                                        if(subcom_global_pass && subcom_global_pass_recv)
+                                        if(passed && subcom_global_pass_recv)
                                                 printf("SUBCOMM TEST: PASS, SIZE: %d*1024\n", sizes[size_counter]);
                                         else
-                                                printf("SUBCOMM TEST: FAIL, SIZE: %d*1024\n", sizes[size_counter]);
+                                                printf(RED"SUBCOMM TEST: FAIL, SIZE: %d*1024\n"RESET, sizes[size_counter]);
                                 }else{
-                                        MPI_Send(&subcom_global_pass, 1 , MPI_INT, 0, 3, MPI_COMM_WORLD);
+                                        MPI_Send(&passed, 1 , MPI_INT, 0, 3, MPI_COMM_WORLD);
                                 }
+                                
                         }else{
-                        MPI_Send(&subcom_local_sum, 1 , MPI_FLOAT, 0, 1, New_Comm);
-                        MPI_Send(&subcom_global_sum, 1 , MPI_FLOAT, 0, 2, New_Comm);
+                                MPI_Send(subcom_rand_nums, num_elements_per_proc , MPI_FLOAT, 0, 1, New_Comm);
+                                MPI_Send(subcom_global_sum, num_elements_per_proc , MPI_FLOAT, 0, 2, New_Comm);
                         }
 
                         MPI_Barrier(New_Comm);
