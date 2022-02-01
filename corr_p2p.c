@@ -56,6 +56,7 @@ int main(int argc, char** argv){
 		
 		float *rand_nums = NULL;
 		if (my_rank == 0) {
+				MPI_Status status;
 				int dest_rank=1;
 				int from_rank = 1;
 				int tag = 0;
@@ -89,7 +90,7 @@ int main(int argc, char** argv){
 			int dest_rank = 0;
 			int tag = 0;
 			rand_nums = (float *)malloc(sizeof(float) * num_elements_per_proc);
-        	MPI_Recv ( rand_nums, num_elements_per_proc, MPI_FLOAT, from_rank, tag, MPI_COMM_WORLD, &status);
+        		MPI_Recv ( rand_nums, num_elements_per_proc, MPI_FLOAT, from_rank, tag, MPI_COMM_WORLD, &status);
 			MPI_Send(rand_nums, num_elements_per_proc, MPI_FLOAT, dest_rank, tag, MPI_COMM_WORLD);
 		}
 	}

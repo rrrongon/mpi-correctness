@@ -20,7 +20,7 @@ scatter: corr_scatter.c
 	$(MPICC) -o scatter_correctness.exe corr_scatter.c
 
 p2p: corr_p2p.c
-	$(MPICC) -o p2p_correctness.exe corr_p2p.c
+	$(MPICC) -o p2p_correctness.exe corr_p2p.c -lm
 
 clean:
 	rm -f *.x *.o *.exe
