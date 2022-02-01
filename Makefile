@@ -11,7 +11,7 @@ alltoall: corr_alltoall.c
 	$(MPICC) -o alltoall_correctness.exe corr_alltoall.c
 
 bcast: corr_bcast.c
-	$(MPICC) -o bcast_correctness.exe corr_bcast.c
+	$(MPICC) -o bcast_correctness.exe corr_bcast.c -lm
 
 reduce: corr_reduce.c
 	$(MPICC) -o reduce_correctness.exe corr_reduce.c
