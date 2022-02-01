@@ -9,8 +9,8 @@
 #include <math.h>
 #include <stdbool.h>
 
-#define SIZES 2
-#define RAND 10
+#define SIZES 10
+#define RAND 1000
 
 /*
  *    Allreduce: Each process has subtask. They compute.
