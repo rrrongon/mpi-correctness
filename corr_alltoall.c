@@ -59,10 +59,10 @@ int main(int argc, char* argv[])
 
 		/*Create expected data array for this rank*/
 		float * expected_buf = malloc(sizeof(float) * data_cnt_local);
-		int local_st_pos, j, index;
+		int local_st_pos, j;
 		index = 0;
 		for(i=0;i<world_size;i++){
-			local_st_pos = i * num_elements_per_proc * world_size + rank * num_elements_per_proc;
+			local_st_pos = i * num_elements_per_proc * world_size + my_rank * num_elements_per_proc;
 			for(j= local_st_pos; j<num_elements_per_proc; j++){
 				expected_buf[index] = global_ref_data[j];
 				index ++;
