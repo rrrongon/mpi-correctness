@@ -47,6 +47,7 @@ int main(int argc, char** argv) {
 		/*Root process generates input for every process to scatter*/
   		float *rand_nums = NULL;
   		if (my_rank == 0) {
+		printf("TEST SIZE: %d * 1024\n", sizes[size_counter]);
     		rand_nums = create_rand_nums(num_elements_per_proc * world_size);
   		}
 		
@@ -97,22 +98,22 @@ int main(int argc, char** argv) {
 				}
 				if(!local_match){
 					global_pass = global_pass && local_match;
-					printf(RED"TEST: FAIL. Rank %d, size: %d* 1024\n"RESET, rank, sizes[size_counter]);
+					printf(RED"TEST: FAIL. Rank %d\n"RESET, rank);
 				}else{
 					if(DEBUG_LOG)
-						printf("TEST: PASS. Rank %d, size: %d* 1024\n", rank, sizes[size_counter]);
+						printf("TEST: PASS. Rank %d\n", rank);
 				}
 			}
+			if(global_pass){
+                 	       printf("TEST: PASS.\n");
+                	}else{
+                        	printf(RED"TEST: FAIL.\n"RESET);
+                	}
+			printf("\n");
 		}
 
-		if(global_pass){
-			printf("TEST: PASS. size: %d* 1024\n", sizes[size_counter]);
-		}else{
-			printf(RED"TEST: FAIL.size: %d* 1024\n"RESET, sizes[size_counter]);
-		}
 		free(rand_nums);
 		free(sub_rand_nums);
-		printf("\n\n");
 	}
 	
 
