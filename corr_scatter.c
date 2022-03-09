@@ -112,7 +112,7 @@ int main(int argc, char** argv) {
 		}
 		free(rand_nums);
 		free(sub_rand_nums);
-		printf("\n\n")
+		printf("\n\n");
 	}
 	
 
