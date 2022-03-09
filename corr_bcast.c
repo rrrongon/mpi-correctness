@@ -86,19 +86,17 @@ int main(int argc, char* argv[]){
 				}
 				if(rank_pass){
 					if(DEBUG_LOG)
-						printf("TEST: PASS. RANK %d\n",rank);
+						printf("TEST: PASS. RANK %d for size: %d * 1024\n",rank, sizes[size_counter]);
 				}else{
-					printf(RED"TEST: FAIL. RANK %d\n"RESET, rank);
+					printf(RED"TEST: FAIL. RANK for size: %d * 1024\n"RESET,rank, sizes[size_counter]);
 				}
 
 				global_pass = global_pass && rank_pass;
-			}
-
 			if(global_pass)
-				printf("TEST: PASS\n");
+				printf("TEST: PASS for size: %d * 1024\n",sizes[size_counter]);
 			else
-				printf(RED"TEST: FAIL\n"RESET);
-
+				printf(RED"TEST: FAIL for size: %d\n"RESET, sizes[size_counter]);
+			}
 		}else{
 			/*Send received value via routine to root for cross-match*/
 			MPI_Status status;
@@ -107,7 +105,7 @@ int main(int argc, char* argv[]){
 			MPI_Send(rand_nums, data_count, MPI_FLOAT, destination_rank, 1, MPI_COMM_WORLD);	
 		}
 
-		if(size > 4){
+		/*if(size > 4){
 			//Create New world
 			int color = my_rank % 2;
 			MPI_Comm New_Comm;
@@ -182,7 +180,7 @@ int main(int argc, char* argv[]){
 				MPI_Send(subcomm_rand_nums, num_elements_per_proc, MPI_FLOAT, destination_rank, 1,New_Comm);	
 			}
 					
-		}
+		}*/
 
 		free(rand_nums);
 	}
