@@ -8,6 +8,8 @@
 #include <time.h>
 #include <stdbool.h>
 
+#define SIZES 10
+
 float *create_rand_nums(int num_elements) {
   float *rand_nums = (float *)malloc(sizeof(float) * num_elements);
   int i;
@@ -15,16 +17,6 @@ float *create_rand_nums(int num_elements) {
     rand_nums[i] = (rand() / (float)RAND_MAX);
   }
   return rand_nums;
-}
-
-
-float compute_avg(float *array, int num_elements) {
-  float sum = 0.f;
-  int i;
-  for (i = 0; i < num_elements; i++) {
-    sum += array[i];
-  }
-  return sum / num_elements;
 }
 
 
@@ -47,33 +39,96 @@ int main(int argc, char** argv) {
   	int world_size;
   	MPI_Comm_size(MPI_COMM_WORLD, &world_size);
 
-	/*Root process generates input for every process to scatter*/
-  	float *rand_nums = NULL;
-  	if (my_rank == 0) {
+	int sizes[SIZES] = {1, 2, 4, 8, 16, 32, 64, 128, 256, 512};
+    int size_counter;
+
+	for (size_counter=0; size_counter<SIZES; size_counter++){
+		int num_elements_per_proc = sizes[size_counter] * 1024;
+		/*Root process generates input for every process to scatter*/
+  		float *rand_nums = NULL;
+  		if (my_rank == 0) {
     		rand_nums = create_rand_nums(num_elements_per_proc * world_size);
-  	}
-
-	//subtask receive buffer disbursed by root
-  	float *sub_rand_nums = (float *)malloc(sizeof(float) * num_elements_per_proc);
-
-
-  	MPI_Scatter(rand_nums, num_elements_per_proc, MPI_FLOAT, sub_rand_nums,
+  		}
+		
+		//subtask receive buffer disbursed by root
+  		float *sub_rand_nums = (float *)malloc(sizeof(float) * num_elements_per_proc);
+		MPI_Scatter(rand_nums, num_elements_per_proc, MPI_FLOAT, sub_rand_nums,
               num_elements_per_proc, MPI_FLOAT, 0, MPI_COMM_WORLD);
 
-	//complete subtask
-  	float sub_avg = compute_avg(sub_rand_nums, num_elements_per_proc);
-	if (DEBUG_LOG)
-		printf("RANK %d Calculated: %f\n", my_rank, sub_avg);
-
-	//Send completed subtask result to root
-  	if(my_rank!=0){
-    		int data_count = 1;
+		/*all process sends what they received to root for checking*/
+		if(my_rank!=0){
     		int destination_rank = 0;
     		int TAG = 1;
-    		MPI_Send(&sub_avg, data_count, MPI_FLOAT, destination_rank, TAG, MPI_COMM_WORLD);
-  	}
+    		MPI_Send(sub_rand_nums, num_elements_per_proc, MPI_FLOAT, destination_rank, TAG, MPI_COMM_WORLD);
+  		}
 
-	if (my_rank == 0) {    
+		/*root first checks it's own data and then receive from others to check*/
+		int i, rank, tag;
+		int local_match = 1, global_pass=1;
+		MPI_Status status;
+
+		if(my_rank==0){
+			for(i=0; i< num_elements_per_proc; i++){
+				float generated_val = rand_nums[i];
+				float received_val = sub_rand_nums[i];
+				if(generated_val != received_val){
+					local_match = local_match && 0;
+				}
+			}
+			if(!local_match){
+				global_pass = global_pass && local_match;
+				printf(RED"rank 0: value mismatched\n"RESET);
+			}else{
+				if(DEBUG_LOG)
+					printf("TEST: PASS. rank 0\n");
+			}
+			tag = 1;
+			for(rank=1;rank<world_size;rank++){
+				local_match = 1;
+				MPI_Recv(sub_rand_nums, num_elements_per_proc, MPI_FLOAT, rank, tag, MPI_COMM_WORLD, &status);
+				int pos = rank * num_elements_per_proc;
+
+				for(i=pos; i< num_elements_per_proc; i++){
+					float generated_val = rand_nums[i];
+					float received_val = sub_rand_nums[i];
+					if(generated_val != received_val){
+						local_match = local_match && 0;
+					}
+				}
+				if(!local_match){
+					global_pass = global_pass && local_match;
+					printf(RED"TEST: FAIL. Rank %d, size: %d* 1024\n"RESET, rank, sizes[size_counter]);
+				}else{
+					if(DEBUG_LOG)
+						printf("TEST: PASS. Rank %d, size: %d* 1024\n"rank, sizes[size_counter]);
+				}
+			}
+		}
+
+		if(global_pass){
+			printf("TEST: PASS. size: %d* 1024\n"sizes[size_counter]);
+		}else{
+			printf(RED"TEST: FAIL.size: %d* 1024\n"RESET, sizes[size_counter]);
+		}
+		free(rand_nums);
+		free(sub_rand_nums);
+	}
+	
+
+	
+
+
+  	
+
+	//complete subtask
+  	/*float sub_avg = compute_avg(sub_rand_nums, num_elements_per_proc);
+	if (DEBUG_LOG)
+		printf("RANK %d Calculated: %f\n", my_rank, sub_avg);*/
+
+	//Send completed subtask result to root
+  	
+
+	/*if (my_rank == 0) {
     		float test_avg_float;
     		float temp_sum=0;
     		MPI_Status status;
@@ -110,9 +165,9 @@ int main(int argc, char** argv) {
 			printf("TEST: FAILED\n");
 		
     		free(rand_nums);
-  }
+  }*/
 
-    	if(world_size > 4){
+    	/*if(world_size > 4){
         	int color = my_rank % 2;
         	MPI_Comm New_Comm;
         	int new_id, new_world_size, broad_val;
@@ -172,7 +227,7 @@ int main(int argc, char** argv) {
             		}
 
 			/*Inter subcomm root decision exchange for final check*/
-            		if(my_rank==0){
+            		/*if(my_rank==0){
                 		int peer_pass;
                 		MPI_Status temp_status;
                 		MPI_Recv(&peer_pass, 1, MPI_INT, 1,2, MPI_COMM_WORLD, &temp_status);
@@ -194,11 +249,9 @@ int main(int argc, char** argv) {
             		free(subcomm_rand_nums);
         	}
 
-    	}
-
-
-  	free(sub_rand_nums);
+    	}*/
 
   	MPI_Barrier(MPI_COMM_WORLD);
   	MPI_Finalize();
+	return EXIT_SUCCESS;
 }
