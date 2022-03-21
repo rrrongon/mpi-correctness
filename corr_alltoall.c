@@ -39,10 +39,10 @@ int main(int argc, char* argv[])
 		int num_elements_per_proc = sizes[size_counter] * 1024;
 		
 		int data_cnt_global = num_elements_per_proc * world_size * world_size;
-		float * global_ref_data = malloc(sizeof(float) * data_cnt_global);
-		for(i = 0; i < data_cnt_global; i++){
-			global_ref_data[i] = i;
-		}
+		// float * global_ref_data = malloc(sizeof(float) * data_cnt_global);
+		// for(i = 0; i < data_cnt_global; i++){
+		// 	global_ref_data[i] = i;
+		// }
 
 		int data_cnt_local = num_elements_per_proc * world_size;
 		float * local_data = malloc(sizeof(float) * data_cnt_local);
@@ -56,7 +56,7 @@ int main(int argc, char* argv[])
 		// call routine
 		float * recv_buf = malloc(sizeof(float) * data_cnt_local);
 		MPI_Alltoall(local_data, num_elements_per_proc, MPI_FLOAT, recv_buf, num_elements_per_proc, MPI_FLOAT, MPI_COMM_WORLD);
-
+		free(local_data);
 		/*Create expected data array for this rank*/
 		float * expected_buf = malloc(sizeof(float) * data_cnt_local);
 		int local_st_pos, j;
@@ -64,12 +64,12 @@ int main(int argc, char* argv[])
 		for(i=0;i<world_size;i++){
 			local_st_pos = i * num_elements_per_proc * world_size + my_rank * num_elements_per_proc;
 			for(j= local_st_pos; j<num_elements_per_proc; j++){
-				expected_buf[index] = global_ref_data[j];
+				expected_buf[index] = j; //global_ref_data[j];
 				index ++;
 			}
 		}
 
-		free(global_ref_data);
+		//free(global_ref_data);
 
 		int local_pass=1;
 		for(i=0;i<data_cnt_local; i++){
