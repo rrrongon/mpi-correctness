@@ -7,7 +7,7 @@
 #include <mpi.h>
 #include <stdbool.h>
 
-#define SIZES 2
+#define SIZES 10
 
 int main(int argc, char* argv[])
 
@@ -39,19 +39,34 @@ int main(int argc, char* argv[])
 		int num_elements_per_proc = sizes[size_counter] * 1024;
 		
 		int data_cnt_global = num_elements_per_proc * world_size * world_size;
+<<<<<<< HEAD
 		// float * global_ref_data = malloc(sizeof(float) * data_cnt_global);
 		// for(i = 0; i < data_cnt_global; i++){
 		// 	global_ref_data[i] = i;
 		// }
+=======
+		float * global_ref_data = malloc(sizeof(float) * data_cnt_global);
+		//printf("global data in rank: %d \n", my_rank);
+		for(i = 0; i < data_cnt_global; i++){
+			global_ref_data[i] = i;
+			//if(my_rank==0 )
+			//	printf(" %f,",global_ref_data[i]);
+		}
+		//if(my_rank==0)
+		//printf("\n");
+>>>>>>> a68760f98308f38c6d3d533bae4e56676d316482
 
 		int data_cnt_local = num_elements_per_proc * world_size;
 		float * local_data = malloc(sizeof(float) * data_cnt_local);
 		int start_pos = my_rank * num_elements_per_proc *  world_size;
 		int index=0;
-		for(i = start_pos; i < data_cnt_local; i++){
+		//printf("local data in rank: %d \n", my_rank);
+		for(i = start_pos; i < start_pos + data_cnt_local; i++){
 			local_data[index] = i;
 			index++;
+			//printf(" rank %d : %d\n", my_rank, i);
 		}
+                //printf("\n");
 
 		// call routine
 		float * recv_buf = malloc(sizeof(float) * data_cnt_local);
@@ -61,21 +76,39 @@ int main(int argc, char* argv[])
 		float * expected_buf = malloc(sizeof(float) * data_cnt_local);
 		int local_st_pos, j;
 		index = 0;
+<<<<<<< HEAD
 		for(i=0;i<world_size;i++){
 			local_st_pos = i * num_elements_per_proc * world_size + my_rank * num_elements_per_proc;
 			for(j= local_st_pos; j<num_elements_per_proc; j++){
 				expected_buf[index] = j; //global_ref_data[j];
 				index ++;
+=======
+		//printf("expected data in rank: %d \n", my_rank);
+		for(i=0;i< world_size; i++){
+			local_st_pos = (i * num_elements_per_proc * world_size) + (my_rank * num_elements_per_proc);
+			for(j= local_st_pos; j< local_st_pos+num_elements_per_proc; j++){
+				expected_buf[index] = global_ref_data[j];
+				/*if(my_rank==0){
+					printf("pos: %d, gl_val: %f, ex_val: %f",j, global_ref_data[j], expected_buf[index]);
+				}*/
+				index++;
+>>>>>>> a68760f98308f38c6d3d533bae4e56676d316482
 			}
+			//if(my_rank==0)
+				//printf("val of i: %d\n",i);
 		}
 
+<<<<<<< HEAD
 		//free(global_ref_data);
 
+=======
+>>>>>>> a68760f98308f38c6d3d533bae4e56676d316482
 		int local_pass=1;
 		for(i=0;i<data_cnt_local; i++){
 			float recv_val = recv_buf[i];
-			float exp_val = expected_buf[j];
-
+			float exp_val = expected_buf[i];
+			//if(my_rank==0)
+			//	printf("recv: %f, exp: %f\n", recv_val,exp_val);
 			if(recv_val != exp_val){
 				local_pass = local_pass && 0;
 			}else{
@@ -84,8 +117,8 @@ int main(int argc, char* argv[])
 		}
 		free(recv_buf);
 		free(expected_buf);
+		free(global_ref_data);
 
-		printf("rank %d: %d\n", my_rank, local_pass);
 		if(my_rank!=0){
 			MPI_Send(&local_pass, 1, MPI_INT, 0, 1, MPI_COMM_WORLD);
 		}else{
@@ -95,9 +128,18 @@ int main(int argc, char* argv[])
 				MPI_Recv(&recv_local_pass, 1, MPI_INT, rank, 1, MPI_COMM_WORLD, &status);
 				global_pass = global_pass && recv_local_pass;
 				if(!recv_local_pass){
-					printf("Inside root, rank %d: pass: %d\n", rank, recv_local_pass);
+					printf(RED"TEST: FAIL. rank %d\n"RESET, rank);
+					global_pass = global_pass && recv_local_pass;
+				}else{
+					if(DEBUG_LOG){
+						printf("TEST: PASS. rank %d\n",rank);
+					}
 				}
 			}
+			if(global_pass)
+				printf("MSG SIZE: %d*1024, PASS\n",sizes[size_counter]);
+			else
+				printf("MSG SIZE: %d*1024, FAIL\n",sizes[size_counter]);
 		}
 	}
 	MPI_Barrier(MPI_COMM_WORLD);
