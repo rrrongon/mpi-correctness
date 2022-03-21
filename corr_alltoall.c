@@ -39,22 +39,10 @@ int main(int argc, char* argv[])
 		int num_elements_per_proc = sizes[size_counter] * 1024;
 		
 		int data_cnt_global = num_elements_per_proc * world_size * world_size;
-<<<<<<< HEAD
 		// float * global_ref_data = malloc(sizeof(float) * data_cnt_global);
 		// for(i = 0; i < data_cnt_global; i++){
 		// 	global_ref_data[i] = i;
 		// }
-=======
-		float * global_ref_data = malloc(sizeof(float) * data_cnt_global);
-		//printf("global data in rank: %d \n", my_rank);
-		for(i = 0; i < data_cnt_global; i++){
-			global_ref_data[i] = i;
-			//if(my_rank==0 )
-			//	printf(" %f,",global_ref_data[i]);
-		}
-		//if(my_rank==0)
-		//printf("\n");
->>>>>>> a68760f98308f38c6d3d533bae4e56676d316482
 
 		int data_cnt_local = num_elements_per_proc * world_size;
 		float * local_data = malloc(sizeof(float) * data_cnt_local);
@@ -76,33 +64,22 @@ int main(int argc, char* argv[])
 		float * expected_buf = malloc(sizeof(float) * data_cnt_local);
 		int local_st_pos, j;
 		index = 0;
-<<<<<<< HEAD
-		for(i=0;i<world_size;i++){
-			local_st_pos = i * num_elements_per_proc * world_size + my_rank * num_elements_per_proc;
-			for(j= local_st_pos; j<num_elements_per_proc; j++){
-				expected_buf[index] = j; //global_ref_data[j];
-				index ++;
-=======
+
 		//printf("expected data in rank: %d \n", my_rank);
 		for(i=0;i< world_size; i++){
 			local_st_pos = (i * num_elements_per_proc * world_size) + (my_rank * num_elements_per_proc);
 			for(j= local_st_pos; j< local_st_pos+num_elements_per_proc; j++){
-				expected_buf[index] = global_ref_data[j];
+				expected_buf[index] = j;
 				/*if(my_rank==0){
 					printf("pos: %d, gl_val: %f, ex_val: %f",j, global_ref_data[j], expected_buf[index]);
 				}*/
 				index++;
->>>>>>> a68760f98308f38c6d3d533bae4e56676d316482
+
 			}
 			//if(my_rank==0)
 				//printf("val of i: %d\n",i);
 		}
 
-<<<<<<< HEAD
-		//free(global_ref_data);
-
-=======
->>>>>>> a68760f98308f38c6d3d533bae4e56676d316482
 		int local_pass=1;
 		for(i=0;i<data_cnt_local; i++){
 			float recv_val = recv_buf[i];
@@ -117,7 +94,6 @@ int main(int argc, char* argv[])
 		}
 		free(recv_buf);
 		free(expected_buf);
-		free(global_ref_data);
 
 		if(my_rank!=0){
 			MPI_Send(&local_pass, 1, MPI_INT, 0, 1, MPI_COMM_WORLD);
