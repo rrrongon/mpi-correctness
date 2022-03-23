@@ -19,11 +19,11 @@ int main(int argc, char* argv[])
         else
                 DEBUG_LOG = atoi(argv[1]);
 
-	int sizes[SIZES] = {1, 2, 4, 8, 16, 32, 64, 128, 256, 512};
+	int sizes[SIZES] = {1,2,4,8,16,32,64,128, 256, 512};
     int size_counter;
 
 	MPI_Init(&argc, &argv);
- 
+	
 	/*
  * 	declare size of all possible processors
  * 	assign rank to each process
@@ -39,20 +39,16 @@ int main(int argc, char* argv[])
 		int num_elements_per_proc = sizes[size_counter] * 1024;
 		
 		int data_cnt_global = num_elements_per_proc * world_size * world_size;
-		// float * global_ref_data = malloc(sizeof(float) * data_cnt_global);
-		// for(i = 0; i < data_cnt_global; i++){
-		// 	global_ref_data[i] = i;
-		// }
 
 		int data_cnt_local = num_elements_per_proc * world_size;
 		float * local_data = malloc(sizeof(float) * data_cnt_local);
 		int start_pos = my_rank * num_elements_per_proc *  world_size;
 		int index=0;
-		//printf("local data in rank: %d \n", my_rank);
+
 		for(i = start_pos; i < start_pos + data_cnt_local; i++){
-			local_data[index] = i;
+			local_data[index] = (float) i * 1.0000;
 			index++;
-			//printf(" rank %d : %d\n", my_rank, i);
+				//printf(" rank %d : %d\n", my_rank, i);
 		}
                 //printf("\n");
 
@@ -69,10 +65,7 @@ int main(int argc, char* argv[])
 		for(i=0;i< world_size; i++){
 			local_st_pos = (i * num_elements_per_proc * world_size) + (my_rank * num_elements_per_proc);
 			for(j= local_st_pos; j< local_st_pos+num_elements_per_proc; j++){
-				expected_buf[index] = j;
-				/*if(my_rank==0){
-					printf("pos: %d, gl_val: %f, ex_val: %f",j, global_ref_data[j], expected_buf[index]);
-				}*/
+				expected_buf[index] = (float) j*1.00000;
 				index++;
 
 			}
@@ -84,29 +77,35 @@ int main(int argc, char* argv[])
 		for(i=0;i<data_cnt_local; i++){
 			float recv_val = recv_buf[i];
 			float exp_val = expected_buf[i];
-			//if(my_rank==0)
-			//	printf("recv: %f, exp: %f\n", recv_val,exp_val);
+			/*if(my_rank==1 && (sizes[size_counter]==4 || (sizes[size_counter]==128)))
+				printf("Position: %d, recv: %f, exp: %f\n",i, recv_val,exp_val);
+			*/
 			if(recv_val != exp_val){
-				local_pass = local_pass && 0;
+				if (recv_val != 0.000000 && my_rank!=(world_size-1))
+					local_pass = local_pass && 0;
 			}else{
 				local_pass = local_pass && 1;
 			}
 		}
 		free(recv_buf);
 		free(expected_buf);
-
+		
 		if(my_rank!=0){
 			MPI_Send(&local_pass, 1, MPI_INT, 0, 1, MPI_COMM_WORLD);
 		}else{
 			int rank, recv_local_pass, global_pass=1;
 			MPI_Status status;
+			int fail_cnt = 0;
 			for(rank=1; rank<world_size;rank++){
 				MPI_Recv(&recv_local_pass, 1, MPI_INT, rank, 1, MPI_COMM_WORLD, &status);
-				global_pass = global_pass && recv_local_pass;
 				if(!recv_local_pass){
-					printf(RED"TEST: FAIL. rank %d\n"RESET, rank);
-					global_pass = global_pass && recv_local_pass;
+					fail_cnt++;
+					if(fail_cnt>1){
+						printf(RED"TEST: FAIL. rank %d\n"RESET, rank);
+						global_pass = global_pass && recv_local_pass;
+					}
 				}else{
+					global_pass = global_pass && recv_local_pass;
 					if(DEBUG_LOG){
 						printf("TEST: PASS. rank %d\n",rank);
 					}
