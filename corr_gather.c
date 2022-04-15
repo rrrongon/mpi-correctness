@@ -79,7 +79,7 @@ int main(int argc, char** argv) {
                 if (my_rank==0)
                     recv_buf = (float *)malloc(sizeof(float) * num_elements_per_proc * world_size);
                 
-                MPI_gather(sub_rand_nums, num_elements_per_proc, MPI_FLOAT, recv_buf, num_elements_per_proc, MPI_FLOAT, 0, MPI_COMM_WORLD);
+                MPI_Gather(sub_rand_nums, num_elements_per_proc, MPI_FLOAT, recv_buf, num_elements_per_proc, MPI_FLOAT, 0, MPI_COMM_WORLD);
 
                 if (my_rank == 0) {
                         

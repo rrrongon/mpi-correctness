@@ -1,5 +1,5 @@
 MPICC := $(shell which mpicc)
-all: allgather allreduce alltoall bcast reduce scatter p2p
+all: allgather allreduce alltoall bcast reduce scatter p2p gather
 
 allgather: 
 	$(MPICC) -o allgather_correctness.exe corr_allgather.c
@@ -21,6 +21,9 @@ scatter: corr_scatter.c
 
 p2p: corr_p2p.c
 	$(MPICC) -o p2p_correctness.exe corr_p2p.c -lm
+
+gather: corr_gather.c
+	$(MPICC) -o gather_correctness.exe corr_gather.c -lm
 
 clean:
 	rm -f *.x *.o *.exe
